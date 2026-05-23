@@ -1,0 +1,192 @@
+<x-layouts.app title="Map View">
+    <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h2 class="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">Peta Jaringan</h2>
+            <p class="mt-1 text-sm text-slate-500">Marker + polyline berdasarkan koordinat GPS (OpenStreetMap).</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <button
+                type="button"
+                class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+                onclick="window.location.reload()"
+            >
+                Segarkan
+            </button>
+        </div>
+    </div>
+
+    <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div id="network-map" class="h-full w-full"></div>
+    </div>
+
+    <style>
+        #network-map,
+        #network-map .leaflet-container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        (() => {
+            const nodes = @json($mapNodes);
+            const links = @json($mapLinks);
+            const focus = @json($mapFocus);
+
+            const colors = {
+                odc: '#7c3aed',
+                pon: '#2563eb',
+                box: '#059669',
+                pole: '#d97706',
+                customer: '#111827',
+                server: '#0f766e',
+                olc: '#be123c',
+            };
+
+            const normalizePoint = (latRaw, lngRaw) => {
+                const lat = Number(latRaw);
+                const lng = Number(lngRaw);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+                let fixedLat = lat;
+                let fixedLng = lng;
+                // Handle common mistake: swapped lat/lng.
+                if (Math.abs(fixedLat) > 90 && Math.abs(fixedLng) <= 90) {
+                    [fixedLat, fixedLng] = [fixedLng, fixedLat];
+                }
+                if (Math.abs(fixedLat) > 90 || Math.abs(fixedLng) > 180) return null;
+                // Avoid "Null Island" (0,0) which commonly appears from empty/invalid GPS values.
+                if (Math.abs(fixedLat) < 1e-9 && Math.abs(fixedLng) < 1e-9) return null;
+                return [fixedLat, fixedLng];
+            };
+
+            const hasCoords = (node) => !!normalizePoint(node.latitude, node.longitude);
+            const mappedNodes = nodes.filter(hasCoords);
+            const center = mappedNodes[0]
+                ? normalizePoint(mappedNodes[0].latitude, mappedNodes[0].longitude)
+                : [-6.2615, 107.1528];
+
+            const map = L.map('network-map', {
+                zoomControl: true,
+                scrollWheelZoom: true,
+            }).setView(center, mappedNodes.length ? 15 : 12);
+
+            const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 20,
+                attribution: '&copy; OpenStreetMap contributors',
+            });
+            const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20,
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            });
+
+            let activeTiles = null;
+            const syncTiles = () => {
+                const wantsDark = document.documentElement.classList.contains('dark');
+                const next = wantsDark ? darkTiles : lightTiles;
+                if (activeTiles === next) return;
+                if (activeTiles) map.removeLayer(activeTiles);
+                activeTiles = next.addTo(map);
+            };
+            syncTiles();
+            new MutationObserver(syncTiles).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+            const byId = new Map(nodes.map((node) => [String(node.id), node]));
+            const markersById = new Map();
+            const bounds = [];
+
+            const markerIcon = (node) => {
+                const color = colors[node.type] || '#111827';
+                return L.divIcon({
+                    className: '',
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9],
+                    html: `<span style="display:block;width:18px;height:18px;border-radius:999px;background:${color};border:2px solid white;box-shadow:0 6px 16px rgba(0,0,0,.22)"></span>`,
+                });
+            };
+
+            const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+            }[char]));
+
+            mappedNodes.forEach((node) => {
+                const point = normalizePoint(node.latitude, node.longitude);
+                if (!point) return;
+                bounds.push(point);
+                const mapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${point[0]},${point[1]}`)}`;
+                const photo = node.photo_path
+                    ? `<img src="${escapeHtml(node.photo_path)}" alt="${escapeHtml(node.code)}" style="margin-top:8px;max-width:220px;border-radius:8px;border:1px solid #e2e8f0">`
+                    : '';
+
+                const marker = L.marker(point, { icon: markerIcon(node) })
+                    .addTo(map)
+                    .bindPopup(`
+                        <div style="min-width:220px">
+                            <div style="font-weight:800;font-size:14px;color:#0f172a">${escapeHtml(node.code)}</div>
+                            <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Nama:</span> ${escapeHtml(node.name || '-')}</div>
+                            <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Jenis:</span> ${escapeHtml(node.type || '-')}</div>
+                            <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Koordinat:</span> ${escapeHtml(point[0])}, ${escapeHtml(point[1])}</div>
+                            <div style="margin-top:8px">
+                                <a href="${mapsUrl}" target="_blank" rel="noreferrer" style="font-weight:700;color:#0369a1">Buka di Google Maps</a>
+                            </div>
+                            <div style="margin-top:8px;font-size:13px;color:#334155"><span style="color:#64748b">Alamat:</span> ${escapeHtml(node.address || '-')}</div>
+                            <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Catatan:</span> ${escapeHtml(node.notes || '-')}</div>
+                            ${photo}
+                        </div>
+                    `);
+                markersById.set(String(node.id), marker);
+            });
+
+            links.forEach((link) => {
+                const source = byId.get(String(link.source_node_id));
+                const target = byId.get(String(link.target_node_id));
+                if (!source || !target || !hasCoords(source) || !hasCoords(target)) return;
+                const sourcePoint = normalizePoint(source.latitude, source.longitude);
+                const targetPoint = normalizePoint(target.latitude, target.longitude);
+                if (!sourcePoint || !targetPoint) return;
+                const line = [
+                    sourcePoint,
+                    targetPoint,
+                ];
+                const label = [link.cable_type, link.core_count ? `core ${link.core_count}` : null, link.core_number]
+                    .filter(Boolean)
+                    .join(' - ');
+                L.polyline(line, {
+                    color: '#0f172a',
+                    weight: 1.2,
+                    opacity: 0.65,
+                    dashArray: '6 8',
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                }).addTo(map).bindPopup(`
+                    <div style="font-weight:800">${escapeHtml(source.code)} -> ${escapeHtml(target.code)}</div>
+                    <div style="margin-top:4px;color:#64748b">${escapeHtml(label || 'Link')}</div>
+                `);
+            });
+
+            const fitAll = () => {
+                if (!bounds.length) return;
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
+            };
+            const focusNode = focus?.node_id ? byId.get(String(focus.node_id)) : null;
+            if (focusNode && hasCoords(focusNode)) {
+                const point = normalizePoint(focusNode.latitude, focusNode.longitude);
+                if (point) map.setView(point, 18);
+                setTimeout(() => markersById.get(String(focusNode.id))?.openPopup(), 250);
+            } else {
+                const focusPoint = normalizePoint(focus?.latitude, focus?.longitude);
+                if (focusPoint) {
+                    map.setView(focusPoint, 18);
+                } else {
+                    fitAll();
+                }
+            }
+            document.querySelector('[data-map-fit]')?.addEventListener('click', fitAll);
+            const invalidate = () => setTimeout(() => map.invalidateSize(), 120);
+            window.addEventListener('layout:changed', invalidate);
+            window.addEventListener('resize', invalidate);
+            invalidate();
+        })();
+    </script>
+</x-layouts.app>

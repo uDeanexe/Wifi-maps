@@ -233,7 +233,7 @@ function buildSuratJalanPdf({ node, createdAt = new Date(), extras = {}, uploadD
   const kepTextH = doc.heightOfString(instruction || '-', { width: kepW - 36, lineGap: 2 });
   const keperluanRowH = Math.min(124, Math.max(baseKeperluanH, Math.ceil(kepTextH + 52)));
 
-  // Inner cards borders removed (transparent) — rely on outer group border.
+  // Inner cards borders removed (transparent) -- rely on outer group border.
   label('Keperluan', x0 + 18, y + 16);
   valueText(instruction, x0 + 18, y + 36, kepW - 36, { size: 11, maxHeight: keperluanRowH - 54 });
 

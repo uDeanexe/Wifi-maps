@@ -183,78 +183,65 @@ function buildSuratJalanPdf({ node, createdAt = new Date(), extras = {}, uploadD
   doc.restore();
   y += 18;
 
-  // Group card (single transparent container for the whole info block)
-  const groupStartY = y;
+  // Group card: compact + pro layout (title centered, row2: technician + QR, then keperluan + kerusakan)
+  const groupX = x0;
+  const groupY = y;
+  const groupW = contentW;
+  const pad = 20;
+  const colGap = 26;
+  const qrColW = 190;
+  const leftColW = groupW - pad * 2 - qrColW - colGap;
+  const leftX = groupX + pad;
+  const rightX = leftX + leftColW + colGap;
 
-  // Cards row: Tujuan + Teknisi (single row inside group)
-  const cardH = 96;
+  // Baris 1: Judul utama (center) dari "tujuan" (tanpa label)
+  const headerText = normalizeContent(extras.tujuan || extras.destination || '-') || '-';
+  const headerValue = clipText(headerText, 140).toUpperCase();
+  doc.fillColor('#0F172A').font('Helvetica-Bold').fontSize(13.5);
+  const titleH = doc.heightOfString(headerValue, { width: groupW - pad * 2, align: 'center', lineGap: 1.1 });
+  doc.text(headerValue, groupX + pad, groupY + 16, { width: groupW - pad * 2, align: 'center', lineGap: 1.1 });
 
-  const innerPad = 18;
-  const innerX = x0 + innerPad;
-  const innerW = contentW - innerPad * 2;
-  const rightColW = Math.min(220, Math.max(190, Math.round(innerW * 0.34)));
-  const leftColW = innerW - rightColW - 18;
-  const leftX = innerX;
-  const rightX = innerX + leftColW + 18;
+  let cy = groupY + 16 + titleH + 10;
 
-  label('Tujuan', leftX, y + 16);
-  valueText(normalizeContent(extras.tujuan || extras.destination || '-'), leftX, y + 38, leftColW, {
-    bold: true,
-    size: 12,
-    maxHeight: 54,
-  });
+  const drawSoftDivider = (yy) => {
+    doc.save();
+    doc.opacity(0.28);
+    doc
+      .moveTo(groupX + pad, yy)
+      .lineTo(groupX + groupW - pad, yy)
+      .lineWidth(1)
+      .strokeColor('#DCE7F5')
+      .stroke();
+    doc.opacity(1);
+    doc.restore();
+  };
 
-  label('Teknisi', rightX, y + 16);
-  doc
-    .fillColor('#0F172A')
-    .font('Helvetica')
-    .fontSize(10)
-    .text(`${technician || '-'}`, rightX, y + 36, { width: rightColW });
-  doc
-    .fillColor('#0F172A')
-    .font('Helvetica')
-    .fontSize(10)
-    .text(`Kontak: ${technicianContact || '-'}`, rightX, y + 54, { width: rightColW });
-  doc
-    .fillColor('#0F172A')
-    .font('Helvetica')
-    .fontSize(10)
-    .text(`Email: ${technicianEmail || '-'}`, rightX, y + 72, { width: rightColW });
+  drawSoftDivider(cy);
+  cy += 10;
 
-  y += cardH + 16;
+  // Baris 2: Teknisi (kiri) + QR (kanan) sejajar vertikal
+  label('Teknisi', leftX, cy);
+  const techY = cy + 16;
+  const techLineH = 16;
+  doc.fillColor('#0F172A').font('Helvetica').fontSize(10);
+  doc.text(`${technician || '-'}`, leftX, techY, { width: leftColW });
+  doc.text(`Kontak: ${technicianContact || '-'}`, leftX, techY + techLineH, { width: leftColW });
+  doc.text(`Email: ${technicianEmail || '-'}`, leftX, techY + techLineH * 2, { width: leftColW });
+  const techBlockH = 16 + techLineH * 3;
 
-  // Keperluan + QR (strict grid: same height, perfectly aligned)
-  const baseKeperluanH = 88;
-  const qrCardW = 160;
-  const rowGap = 16;
-  const kepW = qrPng ? (contentW - qrCardW - rowGap) : contentW;
-
-  doc.font('Helvetica').fontSize(11);
-  const kepTextH = doc.heightOfString(instruction || '-', { width: kepW - 36, lineGap: 2 });
-  const keperluanRowH = Math.min(124, Math.max(baseKeperluanH, Math.ceil(kepTextH + 52)));
-
-  // Inner cards borders removed (transparent) -- rely on outer group border.
-  label('Keperluan', x0 + 18, y + 16);
-  valueText(instruction, x0 + 18, y + 36, kepW - 36, { size: 11, maxHeight: keperluanRowH - 54 });
+  const qrImg = 70;
+  const caption = 'Scan untuk buka Google Maps.';
+  const captionFont = 8.5;
+  const captionLineGap = 1.25;
+  doc.font('Helvetica').fontSize(captionFont);
+  const captionH = doc.heightOfString(caption, { width: qrColW, lineGap: captionLineGap });
+  const qrBlockH = qrPng ? qrImg + 8 + captionH : 0;
+  const row2H = Math.max(techBlockH, qrBlockH) + 6;
 
   if (qrPng) {
-    const qrX = x0 + kepW + rowGap;
-    // no inner border
-
-    // Center QR block inside the card (image centered, caption centered).
-    const qrImg = 54;
-    const caption = 'Scan untuk buka Google Maps.';
-    const captionFont = 8.5;
-    const captionLineGap = 1.4;
-
-    doc.font('Helvetica').fontSize(captionFont);
-    const captionH = doc.heightOfString(caption, { width: qrCardW - 28, lineGap: captionLineGap });
-    const blockH = qrImg + 8 + captionH;
-    // Keep it slightly toward the top for a cleaner look (less "floating").
-    const contentTop = y + 20;
-    const contentH = Math.max(1, keperluanRowH - (contentTop - y) - 14);
-    const qrTop = contentTop + Math.max(0, Math.round((contentH - blockH) / 2)) - 6;
-    const qrLeft = qrX + Math.round((qrCardW - qrImg) / 2);
+    const row2Top = cy;
+    const qrTop = row2Top + Math.max(0, Math.round((row2H - qrBlockH) / 2));
+    const qrLeft = rightX + Math.round((qrColW - qrImg) / 2);
     try {
       doc.image(qrPng, qrLeft, qrTop, { width: qrImg, height: qrImg });
     } catch (_) {}
@@ -262,21 +249,34 @@ function buildSuratJalanPdf({ node, createdAt = new Date(), extras = {}, uploadD
       .fillColor('#334155')
       .font('Helvetica')
       .fontSize(captionFont)
-      .text(caption, qrX + 14, qrTop + qrImg + 8, { width: qrCardW - 28, align: 'center', lineGap: captionLineGap });
+      .text(caption, rightX, qrTop + qrImg + 8, { width: qrColW, align: 'center', lineGap: captionLineGap });
   }
 
-  y += keperluanRowH + 16;
+  cy += row2H + 8;
+  drawSoftDivider(cy - 2);
+  cy += 10;
 
-  // Kerusakan / Catatan (full width)
-  const fullCardH2 = 92;
-  // no inner border
-  label('Kerusakan / Catatan', x0 + 18, y + 16);
-  valueText(damage, x0 + 18, y + 36, contentW - 36, { size: 11, maxHeight: 50 });
-  y += fullCardH2 + 22;
+  // Baris 3: Keperluan (full width)
+  label('Keperluan', leftX, cy);
+  doc.fillColor('#0F172A').font('Helvetica').fontSize(11);
+  const kepMaxH = 78;
+  const kepText = fitText(instruction || '-', groupW - pad * 2, kepMaxH, { lineGap: 2, suffix: '...' });
+  doc.text(kepText, leftX, cy + 16, { width: groupW - pad * 2, lineGap: 2 });
+  const kepH = Math.min(kepMaxH, doc.heightOfString(kepText, { width: groupW - pad * 2, lineGap: 2 }));
+  cy += 16 + kepH + 10;
 
-  // Draw outer group card AFTER content so we know total height.
-  const groupH = (y - 22) - groupStartY + 12;
-  drawCard(x0, groupStartY - 8, contentW, groupH, { radius: 12, strokeOpacity: 0.45, strokeColor: '#BFD5F0' });
+  // Baris 4: Kerusakan / Catatan (full width)
+  label('Kerusakan / Catatan', leftX, cy);
+  valueText(damage, leftX, cy + 16, groupW - pad * 2, { size: 11, maxHeight: 64 });
+  const dmgH = Math.min(64, doc.heightOfString(fitText(damage, groupW - pad * 2, 64, { lineGap: 2, suffix: '...' }), { width: groupW - pad * 2, lineGap: 2 }));
+  cy += 16 + dmgH + 14;
+
+  // Outer group border (soft / transparent)
+  const groupH = Math.max(180, cy - groupY);
+  drawCard(groupX, groupY, groupW, groupH, { radius: 12, strokeOpacity: 0.30, strokeColor: '#BFD5F0' });
+
+  // Move y below group
+  y = groupY + groupH + 22;
 
   // Lokasi / Node section
   doc.fillColor('#0F172A').font('Helvetica-Bold').fontSize(12).text('Lokasi / Node', x0, y);

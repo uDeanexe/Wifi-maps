@@ -78,7 +78,24 @@
                         <span data-node-gps-status class="px-2 py-2 text-xs font-semibold text-slate-500">Klik peta untuk memilih titik.</span>
                     </div>
                     <label class="grid gap-2"><span class="form-label">Alamat</span><input name="address" class="form-control" placeholder="Alamat lokasi"></label>
-                    <label class="grid gap-2"><span class="form-label">Foto</span><input name="photo" type="file" accept="image/*" class="form-control"></label>
+                    <div class="grid gap-2">
+                        <span class="form-label">Foto</span>
+                        <div class="dropzone" data-dropzone>
+                            <input name="photo" type="file" accept="image/*" class="sr-only" data-dropzone-input>
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-slate-900">Drag &amp; drop foto</div>
+                                    <div class="mt-1 text-xs text-slate-500">Atau klik tombol pilih file. Format: JPG/PNG/WEBP.</div>
+                                    <div class="mt-2 text-xs text-slate-600" data-dropzone-meta>Belum ada file dipilih.</div>
+                                </div>
+                                <div class="flex shrink-0 flex-col gap-2">
+                                    <button type="button" class="dropzone-button" data-dropzone-pick>Pilih File</button>
+                                    <button type="button" class="dropzone-clear hidden" data-dropzone-clear>Clear</button>
+                                </div>
+                            </div>
+                            <img data-dropzone-preview class="mt-4 hidden w-full rounded-lg border border-slate-200 bg-white object-contain" alt="Preview foto">
+                        </div>
+                    </div>
                     <label class="grid gap-2"><span class="form-label">Catatan</span><textarea name="notes" class="form-control min-h-24" placeholder="Catatan teknis"></textarea></label>
                 </div>
                 <div class="modal-footer">
@@ -154,7 +171,24 @@
                     <label class="grid gap-2"><span class="form-label">Tipe</span><select name="node_type_id" class="form-control" required>@foreach ($nodeTypes as $type)<option value="{{ $type->id }}" @selected($node->node_type_id === $type->id)>{{ $type->label }}</option>@endforeach</select></label>
                     <label class="grid gap-2"><span class="form-label">Kode</span><input name="code" value="{{ $node->code }}" class="form-control" required></label>
                     <label class="grid gap-2"><span class="form-label">Nama</span><input name="name" value="{{ $node->name }}" class="form-control" placeholder="Nama node"></label>
-                    <label class="grid gap-2"><span class="form-label">Ganti Foto</span><input name="photo" type="file" accept="image/*" class="form-control"></label>
+                    <div class="grid gap-2 md:col-span-2">
+                        <span class="form-label">Ganti Foto</span>
+                        <div class="dropzone" data-dropzone>
+                            <input name="photo" type="file" accept="image/*" class="sr-only" data-dropzone-input>
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-slate-900">Drag &amp; drop foto baru</div>
+                                    <div class="mt-1 text-xs text-slate-500">Kalau tidak pilih file, foto lama tetap dipakai.</div>
+                                    <div class="mt-2 text-xs text-slate-600" data-dropzone-meta>Belum ada file dipilih.</div>
+                                </div>
+                                <div class="flex shrink-0 flex-col gap-2">
+                                    <button type="button" class="dropzone-button" data-dropzone-pick>Pilih File</button>
+                                    <button type="button" class="dropzone-clear hidden" data-dropzone-clear>Clear</button>
+                                </div>
+                            </div>
+                            <img data-dropzone-preview class="mt-4 hidden w-full rounded-lg border border-slate-200 bg-white object-contain" alt="Preview foto">
+                        </div>
+                    </div>
                     <label class="grid gap-2"><span class="form-label">Latitude</span><input name="latitude" value="{{ $node->latitude }}" class="form-control" placeholder="-6.2615"></label>
                     <label class="grid gap-2"><span class="form-label">Longitude</span><input name="longitude" value="{{ $node->longitude }}" class="form-control" placeholder="107.1528"></label>
                     <label class="grid gap-2 md:col-span-2"><span class="form-label">Alamat</span><input name="address" value="{{ $node->address }}" class="form-control" placeholder="Alamat lokasi"></label>

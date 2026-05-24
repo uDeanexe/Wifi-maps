@@ -5,6 +5,9 @@
             <p class="mt-1 text-sm text-slate-500">Marker + polyline berdasarkan koordinat GPS (OpenStreetMap).</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
+            <a class="btn" href="{{ route('reports.topology.pdf') }}">Report PDF (Full)</a>
+            <a class="btn" href="{{ route('reports.nodes.pdf') }}">PDF Node</a>
+            <a class="btn" href="{{ route('reports.links.pdf') }}">PDF Link</a>
             <button
                 type="button"
                 class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"

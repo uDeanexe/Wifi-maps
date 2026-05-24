@@ -95,3 +95,88 @@ document.addEventListener('close', (event) => {
         notifyLayoutChanged();
     }
 }, true);
+
+function initDropzones(root = document) {
+    root.querySelectorAll('[data-dropzone]').forEach((zone) => {
+        if (zone.dataset.dropzoneInit === '1') return;
+        zone.dataset.dropzoneInit = '1';
+
+        const input = zone.querySelector('input[type="file"][data-dropzone-input]');
+        const preview = zone.querySelector('[data-dropzone-preview]');
+        const meta = zone.querySelector('[data-dropzone-meta]');
+        const clearBtn = zone.querySelector('[data-dropzone-clear]');
+        const pickBtn = zone.querySelector('[data-dropzone-pick]');
+
+        if (!input) return;
+
+        let objectUrl = null;
+
+        const setPreviewFromFile = (file) => {
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+                objectUrl = null;
+            }
+
+            if (!file) {
+                preview?.classList.add('hidden');
+                clearBtn?.classList.add('hidden');
+                if (meta) meta.textContent = 'Belum ada file dipilih.';
+                return;
+            }
+
+            if (meta) meta.textContent = `${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            if (preview && file.type?.startsWith('image/')) {
+                objectUrl = URL.createObjectURL(file);
+                preview.src = objectUrl;
+                preview.classList.remove('hidden');
+            }
+            clearBtn?.classList.remove('hidden');
+        };
+
+        const setFiles = (files) => {
+            const file = files && files[0] ? files[0] : null;
+            if (!file) return;
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            input.files = dt.files;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+
+        input.addEventListener('change', () => setPreviewFromFile(input.files?.[0] ?? null));
+        clearBtn?.addEventListener('click', () => {
+            input.value = '';
+            setPreviewFromFile(null);
+        });
+        pickBtn?.addEventListener('click', () => input.click());
+
+        const stop = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        ['dragenter', 'dragover'].forEach((type) => {
+            zone.addEventListener(type, (event) => {
+                stop(event);
+                zone.classList.add('is-dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach((type) => {
+            zone.addEventListener(type, (event) => {
+                stop(event);
+                zone.classList.remove('is-dragover');
+            });
+        });
+
+        zone.addEventListener('drop', (event) => {
+            const files = event.dataTransfer?.files;
+            if (!files?.length) return;
+            setFiles(files);
+        });
+
+        // initial state (in case browser restores form state)
+        setPreviewFromFile(input.files?.[0] ?? null);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => initDropzones());

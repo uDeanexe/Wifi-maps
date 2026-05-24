@@ -152,4 +152,20 @@
     .toolbar {
         @apply mb-5 flex flex-wrap items-center justify-between gap-3;
     }
+
+    .dropzone {
+        @apply relative w-full rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-700 transition;
+    }
+
+    .dropzone.is-dragover {
+        @apply border-sky-400 bg-sky-50;
+    }
+
+    .dropzone .dropzone-button {
+        @apply inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-800;
+    }
+
+    .dropzone .dropzone-clear {
+        @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50;
+    }
 }

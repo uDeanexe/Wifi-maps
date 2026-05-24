@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Wifi Maps' }}</title>
+    <link rel="icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/img/jonusa.png">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">

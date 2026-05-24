@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import PDFDocument from 'pdfkit';
+import QRCode from 'qrcode';
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
@@ -173,6 +174,79 @@ function signatures() {
   doc.y = y + 130;
 }
 
+function mapsUrlForNode(node) {
+  const lat = Number(node?.latitude);
+  const lng = Number(node?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}`;
+}
+
+async function nodeQrSection(nodes) {
+  const withCoords = (nodes || []).filter((n) => mapsUrlForNode(n));
+  if (!withCoords.length) return;
+
+  section('QR Lokasi Node (Google Maps)');
+  doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
+    .text('Scan QR untuk buka lokasi di Google Maps. QR hanya dibuat untuk node yang punya latitude & longitude.', page.margin, doc.y - 2);
+  doc.moveDown(0.6);
+
+  const gap = 12;
+  const cols = 2;
+  const cardW = (page.width - page.margin * 2 - gap * (cols - 1)) / cols;
+  const qrSize = 86;
+  const cardPad = 10;
+  const cardH = qrSize + cardPad * 2;
+
+  for (let i = 0; i < withCoords.length; i += 1) {
+    const node = withCoords[i];
+    const url = mapsUrlForNode(node);
+    if (!url) continue;
+
+    const col = i % cols;
+    if (col === 0) {
+      ensureSpace(cardH + gap);
+    }
+
+    const x = page.margin + col * (cardW + gap);
+    const y = doc.y;
+
+    doc.roundedRect(x, y, cardW, cardH, 8).fillAndStroke('#ffffff', colors.line);
+
+    const qr = await QRCode.toBuffer(url, { type: 'png', margin: 1, width: qrSize });
+    doc.image(qr, x + cardPad, y + cardPad, { width: qrSize, height: qrSize });
+
+    const textX = x + cardPad + qrSize + 10;
+    const textW = cardW - (textX - x) - cardPad;
+
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.ink)
+      .text(fit(node.code || '-', 28), textX, y + cardPad, { width: textW });
+    doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
+      .text(fit(node.name || '-', 34), textX, doc.y + 2, { width: textW });
+
+    const coords = node.latitude && node.longitude ? `${node.latitude}, ${node.longitude}` : '-';
+    doc.font('Helvetica').fontSize(8.5).fillColor(colors.ink)
+      .text(`Koordinat: ${fit(coords, 44)}`, textX, doc.y + 6, { width: textW });
+
+    if (node.address) {
+      doc.font('Helvetica').fontSize(8.5).fillColor(colors.ink)
+        .text(`Alamat: ${fit(node.address, 56)}`, textX, doc.y + 2, { width: textW });
+    }
+
+    doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
+      .text(fit(url, 64), textX, y + cardH - 18, { width: textW });
+
+    if (col === cols - 1) {
+      doc.y = y + cardH + gap;
+    } else {
+      doc.y = y;
+    }
+  }
+
+  if (withCoords.length % cols !== 0) {
+    doc.y = doc.y + cardH + gap;
+  }
+}
+
 
 drawHeader();
 doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
@@ -196,6 +270,10 @@ table('Daftar Link', [
   { label: 'PON / ODC', value: (row) => [row.pon_name, row.odc_name].filter(Boolean).join(' / '), width: 109 },
   { label: 'Catatan', value: 'notes', width: 70 },
 ], payload.links);
+
+if ((payload.type === 'topology' || payload.type === 'nodes') && payload.nodes?.length) {
+  await nodeQrSection(payload.nodes);
+}
 
 
 const range = doc.bufferedPageRange();

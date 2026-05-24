@@ -27,6 +27,20 @@ class ReportController extends Controller
         return response()->download($path)->deleteFileAfterSend();
     }
 
+    public function nodesPdf()
+    {
+        $nodes = $this->nodeRows();
+        $path = $this->pdf->generate([
+            'type' => 'nodes',
+            'title' => 'Laporan Node',
+            'generated_at' => now()->format('Y-m-d H:i'),
+            'summary' => ['jumlah_node' => count($nodes)],
+            'nodes' => $nodes,
+        ], 'nodes-report-'.now()->format('Y-m-d-His').'.pdf');
+
+        return response()->download($path)->deleteFileAfterSend();
+    }
+
     public function linksPdf()
     {
         $links = $this->linkRows();
@@ -112,4 +126,3 @@ class ReportController extends Controller
             ->all();
     }
 }
-

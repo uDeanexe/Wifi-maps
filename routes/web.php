@@ -32,6 +32,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/users', [MappingController::class, 'storeUser'])->name('users.store');
 
     Route::get('/reports/topology.pdf', [ReportController::class, 'topologyPdf'])->name('reports.topology.pdf');
+    Route::get('/reports/nodes.pdf', [ReportController::class, 'nodesPdf'])->name('reports.nodes.pdf');
     Route::get('/reports/links.pdf', [ReportController::class, 'linksPdf'])->name('reports.links.pdf');
     Route::get('/reports/nodes.csv', [ReportController::class, 'nodesCsv'])->name('reports.nodes.csv');
     Route::get('/reports/links.csv', [ReportController::class, 'linksCsv'])->name('reports.links.csv');

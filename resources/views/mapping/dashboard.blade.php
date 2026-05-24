@@ -14,6 +14,7 @@
         </div>
         <div class="flex flex-wrap gap-3">
             <a class="btn" href="{{ route('reports.topology.pdf') }}">Report Topology</a>
+            <a class="btn" href="{{ route('reports.nodes.pdf') }}">Report Node</a>
             <a class="btn" href="{{ route('reports.links.pdf') }}">Report Link</a>
             <a class="btn" href="{{ route('reports.nodes.csv') }}">Export Node CSV</a>
             <a class="btn" href="{{ route('reports.links.csv') }}">Export Link CSV</a>

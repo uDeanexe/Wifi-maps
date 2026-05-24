@@ -10,7 +10,7 @@
     <form method="post" action="{{ route('login.store') }}" class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
         @csrf
         <h1 class="text-2xl font-bold">Wifi Maps</h1>
-        <p class="mt-1 text-sm text-slate-500">Masuk untuk kelola mapping, gangguan, dan rekam kerja.</p>
+        <p class="mt-1 text-sm text-slate-500">Masuk untuk kelola mapping dan report.</p>
         @if ($errors->any())
             <div class="mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ $errors->first() }}</div>
         @endif

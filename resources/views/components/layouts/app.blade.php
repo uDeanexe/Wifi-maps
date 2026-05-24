@@ -26,8 +26,6 @@
                     ['route' => 'topology', 'label' => 'Topology'],
                     ['route' => 'nodes.index', 'label' => 'Data Node'],
                     ['route' => 'links.index', 'label' => 'Data Link'],
-                    ['route' => 'incidents.index', 'label' => 'Gangguan'],
-                    ['route' => 'work-reports.index', 'label' => 'Rekam Kerja'],
                 ];
                 if (in_array(auth()->user()->role, ['superadmin', 'admin'], true)) {
                     $items[] = ['route' => 'users.index', 'label' => 'Akun User'];
@@ -53,12 +51,6 @@
                                     @break
                                 @case('links.index')
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a3 3 0 0 1 0-4M14 10a3 3 0 0 1 0 4M12 12h2"/></svg>
-                                    @break
-                                @case('incidents.index')
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-                                    @break
-                                @case('work-reports.index')
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M9 7h6M5 21h14M7 17h10"/></svg>
                                     @break
                                 @default
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-3-3.87M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg>

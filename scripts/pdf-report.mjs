@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import PDFDocument from 'pdfkit';
 
 const [inputPath, outputPath] = process.argv.slice(2);
@@ -9,40 +8,6 @@ if (!inputPath || !outputPath) {
 }
 
 const payload = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
-
-if (payload?.type === 'surat_jalan') {
-  const { buildSuratJalanPdfBuffer } = await import('../resources/js/pdf.js');
-
-  const sj = payload?.surat_jalan || {};
-  const node = sj?.node || {};
-
-  let createdAt = new Date();
-  if (payload?.generated_at) {
-    const parsed = new Date(payload.generated_at);
-    if (!Number.isNaN(parsed.getTime())) createdAt = parsed;
-  }
-
-  const uploadDirAbs = path.resolve(process.cwd(), 'public', 'uploads');
-  const photoPath = node.photo_path || node.photo || node.photoPath;
-  const nodeForPdf = { ...node, photo_path: photoPath };
-
-  const extras = {
-    doc_no: sj.document_no,
-    ticket_no: sj.ticket_no || sj.tiket_no || sj.incident_no || sj.incident_id,
-    tujuan: sj.tujuan,
-    noc_admin: sj.noc_admin,
-    teknisi: sj.teknisi,
-    teknisi_contact: sj.teknisi_contact || sj.technician_contact,
-    teknisi_email: sj.teknisi_email || sj.technician_email,
-    kendaraan: sj.kendaraan,
-    kerusakan: sj.kerusakan,
-    keperluan: sj.keperluan,
-  };
-
-  const buffer = await buildSuratJalanPdfBuffer({ node: nodeForPdf, createdAt, extras, uploadDirAbs });
-  fs.writeFileSync(outputPath, buffer);
-  process.exit(0);
-}
 
 const doc = new PDFDocument({ size: 'A4', margin: 36, bufferPages: true });
 const stream = fs.createWriteStream(outputPath);
@@ -208,28 +173,6 @@ function signatures() {
   doc.y = y + 130;
 }
 
-function suratJalan(sj) {
-  kvGrid('Informasi Dokumen', [
-    ['No Dokumen', sj.document_no],
-    ['Tujuan', sj.tujuan],
-    ['Keperluan', sj.keperluan],
-    ['Kerusakan / Catatan', sj.kerusakan],
-    ['Admin NOC', sj.noc_admin],
-    ['Teknisi', sj.teknisi],
-    ['Kendaraan', sj.kendaraan],
-  ]);
-
-  kvGrid('Lokasi / Node', [
-    ['Kode Node', sj.node?.code],
-    ['Nama Node', sj.node?.name],
-    ['Jenis', sj.node?.type_label || sj.node?.type],
-    ['Koordinat', sj.node?.latitude && sj.node?.longitude ? `${sj.node.latitude}, ${sj.node.longitude}` : '-'],
-    ['Alamat', sj.node?.address],
-    ['Catatan Node', sj.node?.notes],
-  ]);
-
-  signatures();
-}
 
 drawHeader();
 doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
@@ -254,24 +197,6 @@ table('Daftar Link', [
   { label: 'Catatan', value: 'notes', width: 70 },
 ], payload.links);
 
-table('Daftar Gangguan', [
-  { label: 'Judul', value: 'title', width: 150, bold: true, limit: 34 },
-  { label: 'Kategori', value: 'category', width: 74 },
-  { label: 'Status', value: 'status', width: 76, status: true, bold: true },
-  { label: 'Node', value: 'node_code', width: 68, bold: true },
-  { label: 'Pelapor', value: 'reporter_name', width: 80 },
-  { label: 'Teknisi', value: 'technician_name', width: 75 },
-], payload.incidents);
-
-table('Rekam Kerja', [
-  { label: 'Laporan', value: 'report_title', width: 162, bold: true, limit: 34 },
-  { label: 'Status', value: 'status', width: 76, status: true, bold: true },
-  { label: 'Teknisi', value: 'technician_name', width: 94 },
-  { label: 'Node', value: 'node_code', width: 76, bold: true },
-  { label: 'Keterangan', value: 'description', width: 115, limit: 36 },
-], payload.work_reports);
-
-if (payload.surat_jalan) suratJalan(payload.surat_jalan);
 
 const range = doc.bufferedPageRange();
 for (let i = range.start; i < range.start + range.count; i += 1) {

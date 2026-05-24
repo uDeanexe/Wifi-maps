@@ -156,7 +156,7 @@ class PdfReportService
             $lines[] = '';
         }
 
-        foreach (['nodes' => 'Daftar Node', 'links' => 'Daftar Link', 'incidents' => 'Daftar Gangguan', 'work_reports' => 'Rekam Kerja'] as $key => $label) {
+        foreach (['nodes' => 'Daftar Node', 'links' => 'Daftar Link'] as $key => $label) {
             if (! isset($payload[$key]) || ! is_array($payload[$key])) {
                 continue;
             }
@@ -166,15 +166,6 @@ class PdfReportService
                 $lines[] = ($index + 1).'. '.$this->rowSummary($row);
             }
             $lines[] = '';
-        }
-
-        if (isset($payload['surat_jalan'])) {
-            $sj = $payload['surat_jalan'];
-            $lines[] = 'Detail Surat Jalan';
-            foreach (['document_no', 'tujuan', 'keperluan', 'kerusakan', 'noc_admin', 'teknisi', 'kendaraan'] as $key) {
-                $lines[] = str_replace('_', ' ', $key).': '.($sj[$key] ?? '-');
-            }
-            $lines[] = 'Node: '.($sj['node']['code'] ?? '-').' - '.($sj['node']['name'] ?? '-');
         }
 
         return array_map(fn ($line) => substr((string) $line, 0, 110), $lines);

@@ -3,10 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\NodeType;
-use App\Models\Incident;
 use App\Models\Link;
 use App\Models\Node;
-use App\Models\WorkReport;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -98,30 +96,6 @@ class DatabaseSeeder extends Seeder
                 'core_count' => 8,
                 'core_number' => '1-8',
                 'notes' => 'Link demo PON ke ODP',
-            ]);
-
-            $incident = Incident::create([
-                'node_id' => $odp->id,
-                'category' => 'kerusakan',
-                'title' => 'Redaman tinggi di ODP Demo',
-                'description' => 'Sinyal pelanggan melemah dan perlu pengecekan lapangan.',
-                'reporter_name' => 'NOC Demo',
-                'reporter_contact' => '0800000000',
-                'noc_admin_name' => 'Admin NOC',
-                'technician_name' => 'Teknisi Demo',
-                'technician_contact' => '081234567890',
-                'work_order_notes' => 'Cek konektor dan patch cord.',
-                'status' => 'assigned',
-                'assigned_at' => now(),
-            ]);
-
-            WorkReport::create([
-                'incident_id' => $incident->id,
-                'node_id' => $odp->id,
-                'technician_name' => 'Teknisi Demo',
-                'report_title' => 'Pengecekan ODP Demo',
-                'description' => 'Data demo untuk memastikan report dan rekam kerja tampil.',
-                'status' => 'completed',
             ]);
         }
     }

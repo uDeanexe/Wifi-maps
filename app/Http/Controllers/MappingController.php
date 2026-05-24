@@ -2,12 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Incident;
 use App\Models\Link;
 use App\Models\Node;
 use App\Models\NodeType;
 use App\Models\User;
-use App\Models\WorkReport;
 use App\Services\MappingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,15 +23,8 @@ class MappingController extends Controller
             'totals' => [
                 'nodes' => Node::count(),
                 'links' => Link::count(),
-                'incidents' => Incident::count(),
-                'work_reports' => WorkReport::count(),
                 'users' => User::count(),
             ],
-            'incidentByStatus' => Incident::query()
-                ->selectRaw('status, count(*) as total')
-                ->groupBy('status')
-                ->pluck('total', 'status'),
-            'latestIncidents' => Incident::with('node')->latest()->limit(6)->get(),
         ]);
     }
 
@@ -172,108 +163,6 @@ class MappingController extends Controller
         return back()->with('status', 'Link berhasil dihapus.');
     }
 
-    public function incidents(): View
-    {
-        return view('mapping.incidents', [
-            'nodes' => Node::orderBy('code')->get(),
-            'incidents' => Incident::with('node.type')->latest()->get(),
-            'technicians' => User::query()
-                ->where('role', 'teknisi')
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name', 'email', 'phone']),
-        ]);
-    }
-
-    public function storeIncident(Request $request): RedirectResponse
-    {
-        $data = $request->validate($this->incidentRules());
-        if (! filled($data['noc_admin_name'] ?? null) && auth()->check() && in_array(auth()->user()->role, ['superadmin', 'admin', 'supervisor_noc'], true)) {
-            $data['noc_admin_name'] = auth()->user()->name;
-        }
-
-        $this->service->storeIncident($data, $request->file('photo'));
-
-        return back()->with('status', 'Gangguan berhasil dibuat.');
-    }
-
-    public function updateIncident(Request $request, Incident $incident): RedirectResponse
-    {
-        $data = $request->validate($this->incidentRules());
-        if (! filled($data['noc_admin_name'] ?? null) && auth()->check() && in_array(auth()->user()->role, ['superadmin', 'admin', 'supervisor_noc'], true)) {
-            $data['noc_admin_name'] = auth()->user()->name;
-        }
-
-        $this->service->updateIncident($incident, $data, $request->file('photo'));
-
-        return back()->with('status', 'Gangguan berhasil diupdate.');
-    }
-
-    public function completeIncident(Request $request, Incident $incident): RedirectResponse
-    {
-        $this->service->completeIncident($incident, $request->validate([
-            'technician_report' => ['required', 'string', 'min:3'],
-            'status' => ['nullable', Rule::in(['completed', 'closed'])],
-        ]));
-
-        return back()->with('status', 'Gangguan selesai diproses.');
-    }
-
-    public function confirmIncident(Incident $incident): RedirectResponse
-    {
-        $this->service->confirmIncident($incident);
-
-        return back()->with('status', 'Teknisi sudah mengonfirmasi pekerjaan dan status menjadi in progress.');
-    }
-
-    public function deleteIncident(Incident $incident): RedirectResponse
-    {
-        $incident->delete();
-
-        return back()->with('status', 'Gangguan berhasil dihapus.');
-    }
-
-    public function workReports(): View
-    {
-        return view('mapping.work-reports', [
-            'nodes' => Node::orderBy('code')->get(),
-            'incidents' => Incident::latest()->get(),
-            'reports' => WorkReport::with(['node', 'incident'])->latest()->get(),
-        ]);
-    }
-
-    public function storeWorkReport(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'incident_id' => ['required', 'exists:incidents,id'],
-            'node_id' => ['nullable', 'exists:nodes,id'],
-            'technician_name' => ['nullable', 'string', 'max:255'],
-            'report_title' => ['required', 'string', 'min:3', 'max:255'],
-            'description' => ['required', 'string', 'min:3'],
-            'status' => ['nullable', Rule::in(['completed', 'closed'])],
-            'photo' => ['nullable', 'image', 'max:5120'],
-        ]);
-
-        if ($request->hasFile('photo')) {
-            $data['photo_path'] = '/storage/'.$request->file('photo')->store('reports', 'public');
-        }
-
-        $incident = Incident::find($data['incident_id']);
-        $data['node_id'] = $data['node_id'] ?? $incident?->node_id;
-        $data['technician_name'] = $data['technician_name'] ?: $incident?->technician_name;
-
-        WorkReport::create($data);
-
-        return back()->with('status', 'Rekam kerja berhasil dibuat.');
-    }
-
-    public function deleteWorkReport(WorkReport $workReport): RedirectResponse
-    {
-        $workReport->delete();
-
-        return back()->with('status', 'Rekam kerja berhasil dihapus.');
-    }
-
     public function users(): View
     {
         abort_unless(in_array(auth()->user()->role, ['superadmin', 'admin'], true), 403);
@@ -379,69 +268,6 @@ class MappingController extends Controller
         ]);
     }
 
-    public function importIncidentsCsv(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'csv' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
-        ]);
-
-        [$created, $updated, $skipped, $errors] = $this->importCsv($data['csv']->getRealPath(), function (array $row, int $line) {
-            $title = trim((string) ($row['title'] ?? ''));
-            $category = trim((string) ($row['category'] ?? 'kerusakan'));
-            if ($title === '') {
-                return ['skip' => "Line {$line}: title wajib diisi."];
-            }
-            if (! in_array($category, ['kerusakan', 'internet_mati'], true)) {
-                return ['skip' => "Line {$line}: category harus kerusakan/internet_mati (title={$title})."];
-            }
-
-            $nodeId = null;
-            $nodeCode = trim((string) ($row['node_code'] ?? ''));
-            if ($nodeCode !== '') {
-                $node = Node::where('code', $nodeCode)->first();
-                if (! $node) {
-                    return ['skip' => "Line {$line}: node_code '{$nodeCode}' tidak ditemukan (title={$title})."];
-                }
-                $nodeId = $node->id;
-            }
-
-            $status = trim((string) ($row['status'] ?? 'reported'));
-            if ($status !== '' && ! in_array($status, Incident::STATUSES, true)) {
-                return ['skip' => "Line {$line}: status tidak valid (title={$title})."];
-            }
-
-            $payload = [
-                'node_id' => $nodeId,
-                'category' => $category,
-                'title' => $title,
-                'description' => $row['description'] ?? null,
-                'reporter_name' => $row['reporter_name'] ?? null,
-                'reporter_contact' => $row['reporter_contact'] ?? null,
-                'noc_admin_name' => $row['noc_admin_name'] ?? null,
-                'technician_name' => $row['technician_name'] ?? null,
-                'technician_contact' => $row['technician_contact'] ?? null,
-                'technician_email' => $row['technician_email'] ?? null,
-                'work_order_notes' => $row['work_order_notes'] ?? null,
-                'status' => $status ?: null,
-            ];
-
-            $id = trim((string) ($row['id'] ?? ''));
-            $existing = $id !== '' ? Incident::find($id) : null;
-            if ($existing) {
-                $this->service->updateIncident($existing, $payload);
-                return ['updated' => true];
-            }
-
-            $this->service->storeIncident($payload);
-            return ['created' => true];
-        });
-
-        return back()->with([
-            'status' => "Import gangguan selesai. created={$created}, updated={$updated}, skipped={$skipped}",
-            'import_errors' => $errors,
-        ]);
-    }
-
     public function storeUser(Request $request): RedirectResponse
     {
         abort_unless(in_array(auth()->user()->role, ['superadmin', 'admin'], true), 403);
@@ -480,26 +306,6 @@ class MappingController extends Controller
             'notes' => ['nullable', 'string'],
             'topology_x' => ['nullable', 'integer'],
             'topology_y' => ['nullable', 'integer'],
-            'photo' => ['nullable', 'image', 'max:5120'],
-        ];
-    }
-
-    private function incidentRules(): array
-    {
-        return [
-            'node_id' => ['nullable', 'exists:nodes,id'],
-            'category' => ['required', Rule::in(['kerusakan', 'internet_mati'])],
-            'title' => ['required', 'string', 'min:3', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'reporter_name' => ['nullable', 'string', 'max:255'],
-            'reporter_contact' => ['nullable', 'string', 'max:255'],
-            'noc_admin_name' => ['nullable', 'string', 'max:255'],
-            'technician_name' => ['nullable', 'string', 'max:255'],
-            'technician_contact' => ['nullable', 'string', 'max:255'],
-            'technician_email' => ['nullable', 'email', 'max:255'],
-            'work_order_notes' => ['nullable', 'string'],
-            'technician_report' => ['nullable', 'string'],
-            'status' => ['nullable', Rule::in(Incident::STATUSES)],
             'photo' => ['nullable', 'image', 'max:5120'],
         ];
     }

@@ -2,21 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Models\Incident;
 use App\Models\Link;
 use App\Models\Node;
 use App\Models\NodeType;
 use App\Models\User;
-use App\Models\WorkReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
-class MappingWorkflowTest extends TestCase
+class MappingBasicsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_authenticated_user_can_create_nodes_links_and_complete_incident(): void
+    public function test_authenticated_user_can_create_nodes_and_links(): void
     {
         $user = User::create([
             'name' => 'Super Admin',
@@ -66,66 +64,6 @@ class MappingWorkflowTest extends TestCase
             'target_node_id' => $target->id,
             'core_count' => 12,
         ]);
-
-        $this->actingAs($user)
-            ->post(route('incidents.store'), [
-                'node_id' => $source->id,
-                'category' => 'kerusakan',
-                'title' => 'Kabel putus',
-                'technician_name' => 'Teknisi A',
-                'description' => 'Loss tinggi',
-            ])
-            ->assertRedirect();
-
-        $incident = Incident::where('title', 'Kabel putus')->firstOrFail();
-        $this->assertSame('assigned', $incident->status);
-        $this->assertNotNull($incident->assigned_at);
-
-        $this->actingAs($user)
-            ->patch(route('incidents.confirm', $incident))
-            ->assertRedirect();
-
-        $incident->refresh();
-        $this->assertSame('in_progress', $incident->status);
-
-        $this->actingAs($user)
-            ->get(route('incidents.surat-jalan.review', $incident))
-            ->assertOk()
-            ->assertSee('Review Surat Jalan Gangguan')
-            ->assertSee('Download PDF');
-
-        $this->actingAs($user)
-            ->get(route('nodes.surat-jalan.review', $source))
-            ->assertOk()
-            ->assertSee('Review Surat Jalan Node');
-
-        $this->actingAs($user)
-            ->patch(route('incidents.complete', $incident), [
-                'technician_report' => 'Kabel sudah disambung ulang',
-                'status' => 'completed',
-            ])
-            ->assertRedirect();
-
-        $incident->refresh();
-        $this->assertSame('completed', $incident->status);
-        $this->assertNotNull($incident->completed_at);
-        $this->assertDatabaseHas('work_reports', [
-            'incident_id' => $incident->id,
-            'node_id' => $source->id,
-            'technician_name' => 'Teknisi A',
-            'status' => 'completed',
-        ]);
-
-        $this->actingAs($user)
-            ->put(route('links.update', Link::firstOrFail()), [
-                'source_node_id' => $source->id,
-                'target_node_id' => $target->id,
-                'cable_type' => 'FO Aerial',
-                'core_count' => 24,
-            ])
-            ->assertRedirect();
-
-        $this->assertSame(1, WorkReport::count());
     }
 
     public function test_link_cannot_target_the_same_node(): void
@@ -171,8 +109,8 @@ class MappingWorkflowTest extends TestCase
             ->assertHeader('content-type', 'text/csv; charset=UTF-8');
 
         $response = $this->actingAs($user)->get(route('reports.topology.pdf'));
-
         $response->assertOk();
         $this->assertStringStartsWith('%PDF', $response->streamedContent());
     }
 }
+

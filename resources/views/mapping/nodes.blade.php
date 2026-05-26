@@ -183,14 +183,19 @@
                                 <div class="min-w-0">
                                     <div class="font-bold text-slate-900">Drag &amp; drop foto baru</div>
                                     <div class="mt-1 text-xs text-slate-500">Kalau tidak pilih file, foto lama tetap dipakai.</div>
-                                    <div class="mt-2 text-xs text-slate-600" data-dropzone-meta>Belum ada file dipilih.</div>
+                                    <div class="mt-2 text-xs text-slate-600" data-dropzone-meta>{{ $node->photo_path ? 'Foto saat ini.' : 'Belum ada file dipilih.' }}</div>
                                 </div>
                                 <div class="flex shrink-0 flex-col gap-2">
                                     <button type="button" class="dropzone-button" data-dropzone-pick>Pilih File</button>
                                     <button type="button" class="dropzone-clear hidden" data-dropzone-clear>Clear</button>
                                 </div>
                             </div>
-                            <img data-dropzone-preview class="mt-4 hidden w-full rounded-lg border border-slate-200 bg-white object-contain" alt="Preview foto">
+                            <img
+                                data-dropzone-preview
+                                class="mt-4 w-full rounded-lg border border-slate-200 bg-white object-contain {{ $node->photo_path ? '' : 'hidden' }}"
+                                alt="Preview foto"
+                                @if ($node->photo_path) src="{{ url($node->photo_path) }}" @endif
+                            >
                         </div>
                     </div>
                     <label class="grid gap-2"><span class="form-label">Latitude</span><input name="latitude" value="{{ $node->latitude }}" class="form-control" placeholder="-6.2615"></label>

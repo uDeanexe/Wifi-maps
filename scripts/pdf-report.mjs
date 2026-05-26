@@ -197,53 +197,50 @@ async function nodeQrSection(nodes) {
   const cardPad = 10;
   const cardH = qrSize + cardPad * 2;
 
-  for (let i = 0; i < withCoords.length; i += 1) {
-    const node = withCoords[i];
-    const url = mapsUrlForNode(node);
-    if (!url) continue;
+  for (let rowStart = 0; rowStart < withCoords.length; rowStart += cols) {
+    ensureSpace(cardH + gap);
+    const rowY = doc.y;
 
-    const col = i % cols;
-    if (col === 0) {
-      ensureSpace(cardH + gap);
-    }
+    for (let col = 0; col < cols; col += 1) {
+      const node = withCoords[rowStart + col];
+      if (!node) continue;
+      const url = mapsUrlForNode(node);
+      if (!url) continue;
 
-    const x = page.margin + col * (cardW + gap);
-    const y = doc.y;
+      const x = page.margin + col * (cardW + gap);
+      const y = rowY;
 
-    doc.roundedRect(x, y, cardW, cardH, 8).fillAndStroke('#ffffff', colors.line);
+      doc.roundedRect(x, y, cardW, cardH, 8).fillAndStroke('#ffffff', colors.line);
 
-    const qr = await QRCode.toBuffer(url, { type: 'png', margin: 1, width: qrSize });
-    doc.image(qr, x + cardPad, y + cardPad, { width: qrSize, height: qrSize });
+      const qr = await QRCode.toBuffer(url, { type: 'png', margin: 1, width: qrSize });
+      doc.image(qr, x + cardPad, y + cardPad, { width: qrSize, height: qrSize });
 
-    const textX = x + cardPad + qrSize + 10;
-    const textW = cardW - (textX - x) - cardPad;
+      const textX = x + cardPad + qrSize + 10;
+      const textW = cardW - (textX - x) - cardPad;
+      const line1Y = y + cardPad;
+      const line2Y = line1Y + 14;
+      const line3Y = line2Y + 18;
+      const line4Y = line3Y + 14;
 
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.ink)
-      .text(fit(node.code || '-', 28), textX, y + cardPad, { width: textW });
-    doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
-      .text(fit(node.name || '-', 34), textX, doc.y + 2, { width: textW });
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.ink)
+        .text(fit(node.code || '-', 28), textX, line1Y, { width: textW });
+      doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
+        .text(fit(node.name || '-', 34), textX, line2Y, { width: textW });
 
-    const coords = node.latitude && node.longitude ? `${node.latitude}, ${node.longitude}` : '-';
-    doc.font('Helvetica').fontSize(8.5).fillColor(colors.ink)
-      .text(`Koordinat: ${fit(coords, 44)}`, textX, doc.y + 6, { width: textW });
-
-    if (node.address) {
+      const coords = node.latitude && node.longitude ? `${node.latitude}, ${node.longitude}` : '-';
       doc.font('Helvetica').fontSize(8.5).fillColor(colors.ink)
-        .text(`Alamat: ${fit(node.address, 56)}`, textX, doc.y + 2, { width: textW });
+        .text(`Koordinat: ${fit(coords, 44)}`, textX, line3Y, { width: textW });
+
+      if (node.address) {
+        doc.font('Helvetica').fontSize(8.5).fillColor(colors.ink)
+          .text(`Alamat: ${fit(node.address, 56)}`, textX, line4Y, { width: textW });
+      }
+
+      doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
+        .text(fit(url, 64), textX, y + cardH - 18, { width: textW });
     }
 
-    doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
-      .text(fit(url, 64), textX, y + cardH - 18, { width: textW });
-
-    if (col === cols - 1) {
-      doc.y = y + cardH + gap;
-    } else {
-      doc.y = y;
-    }
-  }
-
-  if (withCoords.length % cols !== 0) {
-    doc.y = doc.y + cardH + gap;
+    doc.y = rowY + cardH + gap;
   }
 }
 

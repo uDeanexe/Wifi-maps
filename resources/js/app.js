@@ -109,6 +109,9 @@ function initDropzones(root = document) {
 
         if (!input) return;
 
+        const initialSrc = (zone.dataset.dropzoneInitialSrc || '').trim() || null;
+        const initialLabel = (zone.dataset.dropzoneInitialLabel || '').trim() || 'Foto saat ini.';
+        let dragDepth = 0;
         let objectUrl = null;
 
         const setPreviewFromFile = (file) => {
@@ -118,9 +121,15 @@ function initDropzones(root = document) {
             }
 
             if (!file) {
-                preview?.classList.add('hidden');
+                if (initialSrc && preview) {
+                    preview.src = initialSrc;
+                    preview.classList.remove('hidden');
+                    if (meta) meta.textContent = initialLabel;
+                } else {
+                    preview?.classList.add('hidden');
+                    if (meta) meta.textContent = 'Belum ada file dipilih.';
+                }
                 clearBtn?.classList.add('hidden');
-                if (meta) meta.textContent = 'Belum ada file dipilih.';
                 return;
             }
 
@@ -148,6 +157,11 @@ function initDropzones(root = document) {
             setPreviewFromFile(null);
         });
         pickBtn?.addEventListener('click', () => input.click());
+        zone.addEventListener('click', (event) => {
+            if (event.target.closest('[data-dropzone-pick]') || event.target.closest('[data-dropzone-clear]')) return;
+            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
+            input.click();
+        });
 
         const stop = (event) => {
             event.preventDefault();
@@ -157,6 +171,7 @@ function initDropzones(root = document) {
         ['dragenter', 'dragover'].forEach((type) => {
             zone.addEventListener(type, (event) => {
                 stop(event);
+                if (type === 'dragenter') dragDepth += 1;
                 zone.classList.add('is-dragover');
             });
         });
@@ -164,11 +179,16 @@ function initDropzones(root = document) {
         ['dragleave', 'drop'].forEach((type) => {
             zone.addEventListener(type, (event) => {
                 stop(event);
+                if (type === 'dragleave') {
+                    dragDepth = Math.max(0, dragDepth - 1);
+                    if (dragDepth !== 0) return;
+                }
                 zone.classList.remove('is-dragover');
             });
         });
 
         zone.addEventListener('drop', (event) => {
+            dragDepth = 0;
             const files = event.dataTransfer?.files;
             if (!files?.length) return;
             setFiles(files);
@@ -180,3 +200,4 @@ function initDropzones(root = document) {
 }
 
 document.addEventListener('DOMContentLoaded', () => initDropzones());
+

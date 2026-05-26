@@ -173,7 +173,11 @@
                     <label class="grid gap-2"><span class="form-label">Nama</span><input name="name" value="{{ $node->name }}" class="form-control" placeholder="Nama node"></label>
                     <div class="grid gap-2 md:col-span-2">
                         <span class="form-label">Ganti Foto</span>
-                        <div class="dropzone" data-dropzone>
+                        <div
+                            class="dropzone"
+                            data-dropzone
+                            @if ($node->photo_path) data-dropzone-initial-src="{{ url($node->photo_path) }}" data-dropzone-initial-label="Foto saat ini." @endif
+                        >
                             <input name="photo" type="file" accept="image/*" class="sr-only" data-dropzone-input>
                             <div class="flex items-start justify-between gap-4">
                                 <div class="min-w-0">

@@ -45,6 +45,7 @@ class MappingController extends Controller
                 'address' => $node->address,
                 'notes' => $node->notes,
                 'photo_path' => $node->photo_path,
+                'photo_url' => $node->photo_path ? url($node->photo_path) : null,
             ])->values(),
             'mapLinks' => $links->map(fn (Link $link) => [
                 'id' => $link->id,

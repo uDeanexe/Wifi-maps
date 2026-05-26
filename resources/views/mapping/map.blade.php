@@ -118,8 +118,9 @@
                 if (!point) return;
                 bounds.push(point);
                 const mapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${point[0]},${point[1]}`)}`;
-                const photo = node.photo_path
-                    ? `<img src="${escapeHtml(node.photo_path)}" alt="${escapeHtml(node.code)}" style="margin-top:8px;max-width:220px;border-radius:8px;border:1px solid #e2e8f0">`
+                const photoSrc = node.photo_url || node.photo_path;
+                const photo = photoSrc
+                    ? `<img src="${escapeHtml(photoSrc)}" alt="${escapeHtml(node.code)}" style="margin-top:8px;max-width:220px;border-radius:8px;border:1px solid #e2e8f0">`
                     : '';
 
                 const marker = L.marker(point, { icon: markerIcon(node) })

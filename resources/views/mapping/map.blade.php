@@ -31,6 +31,11 @@
             width: 100%;
             height: 100%;
         }
+
+        /* Keep the layer toggle from overlapping the routing badge. */
+        #network-map .leaflet-top.leaflet-right {
+            top: 52px;
+        }
     </style>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">

@@ -37,6 +37,8 @@
             const nodes = @json($mapNodes);
             const links = @json($mapLinks);
             const focus = @json($mapFocus);
+            const MIN_ZOOM = 10;
+            const MAX_ZOOM = 18;
 
             const colors = {
                 odc: '#7c3aed',
@@ -73,19 +75,27 @@
             const map = L.map('network-map', {
                 zoomControl: true,
                 scrollWheelZoom: true,
+                minZoom: MIN_ZOOM,
+                maxZoom: MAX_ZOOM,
             }).setView(center, mappedNodes.length ? 15 : 12);
 
             const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 20,
+                maxZoom: MAX_ZOOM,
                 attribution: '&copy; OpenStreetMap contributors',
             });
             const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                maxZoom: 20,
+                maxZoom: MAX_ZOOM,
                 attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            });
+            const satelliteTiles = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: MAX_ZOOM,
+                attribution: 'Tiles &copy; Esri',
             });
 
             let activeTiles = null;
+            let userSelectedBase = null;
             const syncTiles = () => {
+                if (userSelectedBase) return;
                 const wantsDark = document.documentElement.classList.contains('dark');
                 const next = wantsDark ? darkTiles : lightTiles;
                 if (activeTiles === next) return;
@@ -94,6 +104,17 @@
             };
             syncTiles();
             new MutationObserver(syncTiles).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+            const baseLayers = {
+                'Normal': lightTiles,
+                'Dark': darkTiles,
+                'Satellite': satelliteTiles,
+            };
+            L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+            map.on('baselayerchange', (event) => {
+                userSelectedBase = event?.name || 'custom';
+                activeTiles = event?.layer || activeTiles;
+            });
 
             const byId = new Map(nodes.map((node) => [String(node.id), node]));
             const markersById = new Map();
@@ -149,18 +170,24 @@
                 const sourcePoint = normalizePoint(source.latitude, source.longitude);
                 const targetPoint = normalizePoint(target.latitude, target.longitude);
                 if (!sourcePoint || !targetPoint) return;
-                const line = [
-                    sourcePoint,
-                    targetPoint,
-                ];
+
+                const route = Array.isArray(link.route_geometry) && link.route_geometry.length >= 2
+                    ? link.route_geometry.map((pair) => Array.isArray(pair) && pair.length >= 2 ? [Number(pair[0]), Number(pair[1])] : null).filter(Boolean)
+                    : null;
+
+                const line = route && route.length >= 2
+                    ? route
+                    : [sourcePoint, targetPoint];
+
                 const label = [link.cable_type, link.core_count ? `core ${link.core_count}` : null, link.core_number]
                     .filter(Boolean)
                     .join(' - ');
+                const color = colors[source.type] || '#0f172a';
                 L.polyline(line, {
-                    color: '#0f172a',
-                    weight: 1.2,
-                    opacity: 0.65,
-                    dashArray: '6 8',
+                    color,
+                    weight: route ? 2.4 : 1.6,
+                    opacity: route ? 0.85 : 0.65,
+                    dashArray: route ? null : '6 8',
                     lineCap: 'round',
                     lineJoin: 'round',
                 }).addTo(map).bindPopup(`
@@ -171,17 +198,17 @@
 
             const fitAll = () => {
                 if (!bounds.length) return;
-                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: MAX_ZOOM - 1 });
             };
             const focusNode = focus?.node_id ? byId.get(String(focus.node_id)) : null;
             if (focusNode && hasCoords(focusNode)) {
                 const point = normalizePoint(focusNode.latitude, focusNode.longitude);
-                if (point) map.setView(point, 18);
+                if (point) map.setView(point, Math.min(MAX_ZOOM, 18));
                 setTimeout(() => markersById.get(String(focusNode.id))?.openPopup(), 250);
             } else {
                 const focusPoint = normalizePoint(focus?.latitude, focus?.longitude);
                 if (focusPoint) {
-                    map.setView(focusPoint, 18);
+                    map.setView(focusPoint, Math.min(MAX_ZOOM, 18));
                 } else {
                     fitAll();
                 }

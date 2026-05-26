@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Link;
+use App\Models\LinkRoute;
 use App\Models\Node;
 use App\Models\NodeType;
 use App\Models\User;
 use App\Services\MappingService;
+use App\Services\OsrmRoutingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -19,12 +21,23 @@ class MappingController extends Controller
 
     public function dashboard(): View
     {
+        $nodes = Node::with('type')->latest()->limit(250)->get();
+
         return view('mapping.dashboard', [
             'totals' => [
                 'nodes' => Node::count(),
                 'links' => Link::count(),
                 'users' => User::count(),
             ],
+            'mapNodes' => $nodes->map(fn (Node $node) => [
+                'id' => $node->id,
+                'code' => $node->code,
+                'name' => $node->name,
+                'type' => $node->type?->name,
+                'type_label' => $node->type?->label,
+                'latitude' => $node->latitude,
+                'longitude' => $node->longitude,
+            ])->values(),
         ]);
     }
 
@@ -32,6 +45,7 @@ class MappingController extends Controller
     {
         $nodes = Node::with('type')->latest()->get();
         $links = Link::with(['source.type', 'target.type'])->latest()->get();
+        $routesByLinkId = $this->ensureLinkRoutes($links);
 
         return view('mapping.map', [
             'mapNodes' => $nodes->map(fn (Node $node) => [
@@ -54,6 +68,7 @@ class MappingController extends Controller
                 'cable_type' => $link->cable_type,
                 'core_count' => $link->core_count,
                 'core_number' => $link->core_number,
+                'route_geometry' => $routesByLinkId[(string) $link->id]['geometry'] ?? null,
             ])->values(),
             'mapFocus' => [
                 'node_id' => request('focus_node'),
@@ -61,6 +76,59 @@ class MappingController extends Controller
                 'longitude' => request('lng'),
             ],
         ]);
+    }
+
+    private function ensureLinkRoutes($links): array
+    {
+        $routing = new OsrmRoutingService();
+        $linkIds = $links->pluck('id')->values();
+        $existing = LinkRoute::whereIn('link_id', $linkIds)->get()->keyBy(fn (LinkRoute $route) => (string) $route->link_id);
+        $result = [];
+
+        foreach ($links as $link) {
+            $route = $existing->get((string) $link->id);
+            if ($route && is_array($route->geometry) && count($route->geometry) >= 2) {
+                $result[(string) $link->id] = [
+                    'geometry' => $route->geometry,
+                ];
+                continue;
+            }
+
+            $source = $link->source;
+            $target = $link->target;
+            if (! $source || ! $target || ! is_numeric($source->latitude) || ! is_numeric($source->longitude) || ! is_numeric($target->latitude) || ! is_numeric($target->longitude)) {
+                continue;
+            }
+
+            try {
+                $routed = $routing->route((float) $source->latitude, (float) $source->longitude, (float) $target->latitude, (float) $target->longitude);
+                $model = $route ?: new LinkRoute(['link_id' => $link->id]);
+                $model->provider = 'osrm';
+                $model->geometry = $routed['geometry'];
+                $model->distance_meters = $routed['distance_meters'];
+                $model->duration_seconds = $routed['duration_seconds'];
+                $model->last_error = null;
+                $model->save();
+
+                $result[(string) $link->id] = [
+                    'geometry' => $model->geometry,
+                ];
+            } catch (\Throwable $e) {
+                if ($route) {
+                    $route->last_error = substr($e->getMessage(), 0, 500);
+                    $route->save();
+                } else {
+                    LinkRoute::create([
+                        'link_id' => $link->id,
+                        'provider' => 'osrm',
+                        'geometry' => null,
+                        'last_error' => substr($e->getMessage(), 0, 500),
+                    ]);
+                }
+            }
+        }
+
+        return $result;
     }
 
     public function topology(): View

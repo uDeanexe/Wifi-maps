@@ -20,6 +20,9 @@
 
     <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div id="network-map" class="h-full w-full"></div>
+        <div class="absolute right-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
+            <span class="text-slate-500">Routing:</span> <span data-osrm-status>Checking...</span>
+        </div>
     </div>
 
     <style>
@@ -39,6 +42,7 @@
             const focus = @json($mapFocus);
             const MIN_ZOOM = 10;
             const MAX_ZOOM = 18;
+            const osrmStatusEl = document.querySelector('[data-osrm-status]');
 
             const colors = {
                 odc: '#7c3aed',
@@ -218,6 +222,20 @@
             window.addEventListener('layout:changed', invalidate);
             window.addEventListener('resize', invalidate);
             invalidate();
+
+            fetch(@json(route('osrm.status')), { headers: { 'Accept': 'application/json' } })
+                .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!osrmStatusEl) return;
+                    if (ok && data?.ok) {
+                        osrmStatusEl.textContent = 'OSRM OK';
+                        return;
+                    }
+                    osrmStatusEl.textContent = 'OSRM not reachable';
+                })
+                .catch(() => {
+                    if (osrmStatusEl) osrmStatusEl.textContent = 'OSRM not reachable';
+                });
         })();
     </script>
 </x-layouts.app>

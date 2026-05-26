@@ -80,6 +80,10 @@ class MappingController extends Controller
 
     private function ensureLinkRoutes($links): array
     {
+        if (! (bool) config('services.osrm.enabled', true)) {
+            return [];
+        }
+
         $routing = new OsrmRoutingService();
         $linkIds = $links->pluck('id')->values();
         $existing = LinkRoute::whereIn('link_id', $linkIds)->get()->keyBy(fn (LinkRoute $route) => (string) $route->link_id);

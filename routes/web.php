@@ -42,6 +42,12 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/links/import-csv', [MappingController::class, 'importLinksCsv'])->name('links.import.csv');
 
     Route::get('/osrm/status', function () {
+        if (! (bool) config('services.osrm.enabled', true)) {
+            return response()->json([
+                'ok' => false,
+                'disabled' => true,
+            ], 200);
+        }
         $base = rtrim((string) config('services.osrm.base_url', env('OSRM_BASE_URL', 'http://127.0.0.1:5000')), '/');
         try {
             $response = Http::timeout(3)->acceptJson()->get($base.'/route/v1/driving/107.0,-6.0;107.0001,-6.0001', [

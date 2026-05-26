@@ -36,6 +36,7 @@ return [
     ],
 
     'osrm' => [
+        'enabled' => env('OSRM_ENABLED', true),
         'base_url' => env('OSRM_BASE_URL', 'http://127.0.0.1:5000'),
     ],
 

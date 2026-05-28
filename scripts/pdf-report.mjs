@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import { createRequire } from 'node:module';
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
@@ -31,9 +30,6 @@ function val(value, fallback = '-') {
   if (value === null || value === undefined || value === '') return fallback;
   return String(value);
 }
-
-const require = createRequire(import.meta.url);
-const bwipjs = require('bwip-js');
 
 function fit(value, length = 52) {
   const text = val(value);
@@ -248,27 +244,10 @@ async function linkStickerSheets(links, options = {}) {
   const perPage = rows * cols;
 
   const qrCache = new Map();
-  const barcodeCache = new Map();
   async function qrFor(value) {
     if (qrCache.has(value)) return qrCache.get(value);
     const png = await QRCode.toBuffer(value, { type: 'png', margin: 1, width: 128 });
     qrCache.set(value, png);
-    return png;
-  }
-  async function barcodeFor(value) {
-    if (barcodeCache.has(value)) return barcodeCache.get(value);
-    const png = await bwipjs.toBuffer({
-      bcid: 'code128',
-      text: value,
-      scale: 2,
-      height: 9,
-      includetext: false,
-      textxalign: 'center',
-      paddingwidth: 0,
-      paddingheight: 0,
-      backgroundcolor: 'FFFFFF',
-    });
-    barcodeCache.set(value, png);
     return png;
   }
 
@@ -278,7 +257,7 @@ async function linkStickerSheets(links, options = {}) {
       doc.addPage();
 
       doc.font('Helvetica-Bold').fontSize(13).fillColor(colors.ink)
-        .text(`Sticker Link (Barcode) - Lembar ${copy} / ${copies}`, page.margin, page.margin, { width: page.width - 72 });
+        .text(`Sticker Link (QR) - Lembar ${copy} / ${copies}`, page.margin, page.margin, { width: page.width - 72 });
       doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
         .text('Tempel sticker ini di kabel (sisi sumber & tujuan). Scan QR untuk lihat identitas link.', page.margin, page.margin + 16, { width: page.width - 72 });
       doc.moveTo(page.margin, startY - 6).lineTo(page.width - page.margin, startY - 6).strokeColor(colors.line).stroke();
@@ -301,17 +280,11 @@ async function linkStickerSheets(links, options = {}) {
 
         const pad = 7;
         const value = linkBarcodeValue(link);
-        const qrSize = 56;
+        const qrSize = 64;
         const qr = await qrFor(value);
-        const barcode = await barcodeFor(value);
 
         const qrTop = y + pad;
-        const barcodeH = 18;
-        const barcodeW = stickerW - pad * 2;
-        const barcodeTop = y + stickerH - pad - barcodeH - 10;
-
         doc.image(qr, x + pad, qrTop, { width: qrSize, height: qrSize });
-        doc.image(barcode, x + pad, barcodeTop, { width: barcodeW, height: barcodeH });
 
         const textX = x + pad + qrSize + 8;
         const textW = stickerW - (textX - x) - pad;

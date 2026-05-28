@@ -8,7 +8,7 @@
             <input class="form-control w-72" data-table-search="#links-table" placeholder="Cari link...">
             <a class="btn" href="{{ route('reports.links.csv') }}">Export CSV</a>
             <a class="btn" href="{{ route('reports.links.pdf') }}">Export PDF</a>
-            <a class="btn" href="{{ route('reports.links.stickers.all.pdf') }}" target="_blank" rel="noopener">Print Sticker (3 lembar)</a>
+            <a class="btn" href="{{ route('reports.links.stickers.all.pdf') }}" target="_blank" rel="noopener">Print Sticker QR (3 lembar)</a>
             <button type="button" class="btn" data-modal-open="#links-import-modal">Import CSV</button>
         </div>
     </div>
@@ -55,7 +55,7 @@
                             <td>{{ $link->core_number ?: '-' }}</td>
                             <td class="text-right">
                                 <div class="flex justify-end gap-2">
-                                    <a class="btn" href="{{ route('reports.links.stickers.pdf', $link) }}" target="_blank" rel="noopener">Print</a>
+                                    <a class="btn" href="{{ route('reports.links.stickers.pdf', $link) }}" target="_blank" rel="noopener">Print QR</a>
                                     <button type="button" class="btn" data-modal-open="#link-edit-{{ $link->id }}">Edit</button>
                                     <form method="post" action="{{ route('links.destroy', $link) }}">
                                         @csrf @method('delete')

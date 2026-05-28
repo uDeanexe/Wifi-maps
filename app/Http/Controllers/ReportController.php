@@ -65,7 +65,7 @@ class ReportController extends Controller
         $links = $this->linkRows();
         $path = $this->pdf->generate([
             'type' => 'link-stickers',
-            'title' => 'Sticker Link (Barcode)',
+            'title' => 'Sticker Link (QR)',
             'generated_at' => now()->format('Y-m-d H:i'),
             'summary' => ['jumlah_link' => count($links)],
             'links' => $links,
@@ -84,7 +84,7 @@ class ReportController extends Controller
         $row = $this->linkRow($link->loadMissing(['source', 'target']));
         $path = $this->pdf->generate([
             'type' => 'link-stickers',
-            'title' => 'Sticker Link (Barcode)',
+            'title' => 'Sticker Link (QR)',
             'generated_at' => now()->format('Y-m-d H:i'),
             'summary' => ['jumlah_link' => 1],
             'links' => [$row],

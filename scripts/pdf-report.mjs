@@ -301,16 +301,17 @@ async function linkStickerSheets(links, options = {}) {
 
         const pad = 7;
         const value = linkBarcodeValue(link);
-        const qrSize = 40;
+        const qrSize = 56;
         const qr = await qrFor(value);
         const barcode = await barcodeFor(value);
 
-        const barcodeH = 20;
         const qrTop = y + pad;
-        const barcodeTop = qrTop + qrSize + 6;
+        const barcodeH = 18;
+        const barcodeW = stickerW - pad * 2;
+        const barcodeTop = y + stickerH - pad - barcodeH - 10;
 
         doc.image(qr, x + pad, qrTop, { width: qrSize, height: qrSize });
-        doc.image(barcode, x + pad, barcodeTop, { width: qrSize, height: barcodeH });
+        doc.image(barcode, x + pad, barcodeTop, { width: barcodeW, height: barcodeH });
 
         const textX = x + pad + qrSize + 8;
         const textW = stickerW - (textX - x) - pad;
@@ -330,8 +331,8 @@ async function linkStickerSheets(links, options = {}) {
         doc.font('Helvetica').fontSize(7.4).fillColor(colors.muted)
           .text(`ID: ${id}`, textX, line4Y, { width: textW });
 
-        doc.font('Helvetica').fontSize(6.5).fillColor(colors.muted)
-          .text(fit(value, 70), x + pad, y + stickerH - pad - 7, { width: stickerW - pad * 2, align: 'left' });
+        doc.font('Helvetica').fontSize(6.2).fillColor(colors.muted)
+          .text(fit(value, 70), x + pad, y + stickerH - pad - 8, { width: stickerW - pad * 2, align: 'left' });
       }
 
       offset += perPage;

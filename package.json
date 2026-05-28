@@ -15,6 +15,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "bwip-js": "^4.10.2",
         "leaflet": "^1.9.4",
         "pdfkit": "^0.18.0",
         "qrcode": "^1.5.4"

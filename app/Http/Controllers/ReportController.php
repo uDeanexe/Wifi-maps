@@ -50,7 +50,50 @@ class ReportController extends Controller
             'generated_at' => now()->format('Y-m-d H:i'),
             'summary' => ['jumlah_link' => count($links)],
             'links' => $links,
+            'stickers' => [
+                'enabled' => true,
+                'copies' => 3,
+                'position' => 'first',
+            ],
         ], 'links-report-'.now()->format('Y-m-d-His').'.pdf');
+
+        return response()->download($path)->deleteFileAfterSend();
+    }
+
+    public function linksStickersPdf()
+    {
+        $links = $this->linkRows();
+        $path = $this->pdf->generate([
+            'type' => 'link-stickers',
+            'title' => 'Sticker Link (Barcode)',
+            'generated_at' => now()->format('Y-m-d H:i'),
+            'summary' => ['jumlah_link' => count($links)],
+            'links' => $links,
+            'stickers' => [
+                'enabled' => true,
+                'copies' => 3,
+                'position' => 'first',
+            ],
+        ], 'links-stickers-'.now()->format('Y-m-d-His').'.pdf');
+
+        return response()->download($path)->deleteFileAfterSend();
+    }
+
+    public function linkStickersPdf(Link $link)
+    {
+        $row = $this->linkRow($link->loadMissing(['source', 'target']));
+        $path = $this->pdf->generate([
+            'type' => 'link-stickers',
+            'title' => 'Sticker Link (Barcode)',
+            'generated_at' => now()->format('Y-m-d H:i'),
+            'summary' => ['jumlah_link' => 1],
+            'links' => [$row],
+            'stickers' => [
+                'enabled' => true,
+                'copies' => 3,
+                'position' => 'first',
+            ],
+        ], 'link-stickers-'.$link->id.'-'.now()->format('Y-m-d-His').'.pdf');
 
         return response()->download($path)->deleteFileAfterSend();
     }
@@ -112,17 +155,23 @@ class ReportController extends Controller
         return Link::with(['source', 'target'])
             ->latest()
             ->get()
-            ->map(fn (Link $link) => [
-                'source_code' => $link->source?->code,
-                'target_code' => $link->target?->code,
-                'cable_type' => $link->cable_type,
-                'core_count' => $link->core_count,
-                'core_number' => $link->core_number,
-                'pon_name' => $link->pon_name,
-                'odc_name' => $link->odc_name,
-                'notes' => $link->notes,
-            ])
+            ->map(fn (Link $link) => $this->linkRow($link))
             ->values()
             ->all();
+    }
+
+    private function linkRow(Link $link): array
+    {
+        return [
+            'id' => $link->id,
+            'source_code' => $link->source?->code,
+            'target_code' => $link->target?->code,
+            'cable_type' => $link->cable_type,
+            'core_count' => $link->core_count,
+            'core_number' => $link->core_number,
+            'pon_name' => $link->pon_name,
+            'odc_name' => $link->odc_name,
+            'notes' => $link->notes,
+        ];
     }
 }

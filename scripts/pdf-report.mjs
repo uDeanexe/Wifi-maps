@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
+import { createRequire } from 'node:module';
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
@@ -10,7 +11,7 @@ if (!inputPath || !outputPath) {
 
 const payload = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
 
-const doc = new PDFDocument({ size: 'A4', margin: 36, bufferPages: true });
+const doc = new PDFDocument({ size: 'A4', margin: 36, bufferPages: true, autoFirstPage: false });
 const stream = fs.createWriteStream(outputPath);
 doc.pipe(stream);
 
@@ -30,6 +31,9 @@ function val(value, fallback = '-') {
   if (value === null || value === undefined || value === '') return fallback;
   return String(value);
 }
+
+const require = createRequire(import.meta.url);
+const bwipjs = require('bwip-js');
 
 function fit(value, length = 52) {
   const text = val(value);
@@ -54,7 +58,13 @@ function ensureSpace(height) {
   if (doc.y + height > 770) doc.addPage();
 }
 
+function ensureFirstPage() {
+  if (doc.page) return;
+  doc.addPage();
+}
+
 function drawHeader() {
+  ensureFirstPage();
   doc.save();
   doc.rect(0, 0, page.width, 92).fill(colors.ink);
   doc.rect(0, 88, page.width, 4).fill(colors.blue);
@@ -69,6 +79,7 @@ function drawHeader() {
 }
 
 function section(title) {
+  ensureFirstPage();
   ensureSpace(44);
   doc.moveDown(0.4);
   doc.font('Helvetica-Bold').fontSize(12).fillColor(colors.ink).text(title);
@@ -181,6 +192,154 @@ function mapsUrlForNode(node) {
   return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}`;
 }
 
+function linkBarcodeValue(link) {
+  const source = val(link?.source_code, '');
+  const target = val(link?.target_code, '');
+  const coreCount = val(link?.core_count, '');
+  const coreNumber = val(link?.core_number, '');
+  const cableType = val(link?.cable_type, '');
+  const pon = val(link?.pon_name, '');
+  const odc = val(link?.odc_name, '');
+  const notes = val(link?.notes, '');
+  const id = val(link?.id, '');
+  return [
+    'LINK',
+    `id=${id}`,
+    `from=${source}`,
+    `to=${target}`,
+    cableType ? `cable=${cableType}` : null,
+    coreCount ? `core_count=${coreCount}` : null,
+    coreNumber ? `core_no=${coreNumber}` : null,
+    pon ? `pon=${pon}` : null,
+    odc ? `odc=${odc}` : null,
+    notes ? `notes=${notes}` : null,
+  ].filter(Boolean).join('|').slice(0, 420);
+}
+
+function linkTitleLine(link) {
+  const source = val(link?.source_code);
+  const target = val(link?.target_code);
+  return `${source} → ${target}`;
+}
+
+function linkCoreLine(link) {
+  const parts = [];
+  if (link?.cable_type) parts.push(`Kabel: ${val(link.cable_type)}`);
+  const core = [link?.core_count, link?.core_number].filter(Boolean).map((v) => val(v)).join(' / ');
+  if (core) parts.push(`Core: ${core}`);
+  return parts.join(' | ') || 'Kabel/Core: -';
+}
+
+function linkPonOdcLine(link) {
+  const parts = [link?.pon_name, link?.odc_name].filter(Boolean).map((v) => val(v));
+  return parts.length ? `PON/ODC: ${fit(parts.join(' / '), 44)}` : 'PON/ODC: -';
+}
+
+async function linkStickerSheets(links, options = {}) {
+  const copies = Math.max(1, Math.min(Number(options?.copies) || 3, 6));
+  const rows = 8;
+  const cols = 3;
+  const gap = 12;
+  const titleH = 28;
+  const startY = page.margin + titleH;
+  const usableH = page.height - startY - page.margin;
+  const stickerW = (page.width - page.margin * 2 - gap * (cols - 1)) / cols;
+  const stickerH = (usableH - gap * (rows - 1)) / rows;
+  const perPage = rows * cols;
+
+  const qrCache = new Map();
+  const barcodeCache = new Map();
+  async function qrFor(value) {
+    if (qrCache.has(value)) return qrCache.get(value);
+    const png = await QRCode.toBuffer(value, { type: 'png', margin: 1, width: 128 });
+    qrCache.set(value, png);
+    return png;
+  }
+  async function barcodeFor(value) {
+    if (barcodeCache.has(value)) return barcodeCache.get(value);
+    const png = await bwipjs.toBuffer({
+      bcid: 'code128',
+      text: value,
+      scale: 2,
+      height: 9,
+      includetext: false,
+      textxalign: 'center',
+      paddingwidth: 0,
+      paddingheight: 0,
+      backgroundcolor: 'FFFFFF',
+    });
+    barcodeCache.set(value, png);
+    return png;
+  }
+
+  for (let copy = 1; copy <= copies; copy += 1) {
+    let offset = 0;
+    while (offset < links.length || offset === 0) {
+      doc.addPage();
+
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(colors.ink)
+        .text(`Sticker Link (Barcode) - Lembar ${copy} / ${copies}`, page.margin, page.margin, { width: page.width - 72 });
+      doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
+        .text('Tempel sticker ini di kabel (sisi sumber & tujuan). Scan QR untuk lihat identitas link.', page.margin, page.margin + 16, { width: page.width - 72 });
+      doc.moveTo(page.margin, startY - 6).lineTo(page.width - page.margin, startY - 6).strokeColor(colors.line).stroke();
+
+      const chunk = links.slice(offset, offset + perPage);
+      if (!chunk.length) {
+        doc.font('Helvetica').fontSize(10).fillColor(colors.muted)
+          .text('Tidak ada data link.', page.margin, startY + 10);
+        break;
+      }
+
+      for (let i = 0; i < chunk.length; i += 1) {
+        const link = chunk[i];
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        const x = page.margin + col * (stickerW + gap);
+        const y = startY + row * (stickerH + gap);
+
+        doc.roundedRect(x, y, stickerW, stickerH, 8).fillAndStroke('#ffffff', colors.line);
+
+        const pad = 7;
+        const value = linkBarcodeValue(link);
+        const qrSize = 40;
+        const qr = await qrFor(value);
+        const barcode = await barcodeFor(value);
+
+        const barcodeH = 20;
+        const qrTop = y + pad;
+        const barcodeTop = qrTop + qrSize + 6;
+
+        doc.image(qr, x + pad, qrTop, { width: qrSize, height: qrSize });
+        doc.image(barcode, x + pad, barcodeTop, { width: qrSize, height: barcodeH });
+
+        const textX = x + pad + qrSize + 8;
+        const textW = stickerW - (textX - x) - pad;
+        const line1Y = y + pad + 1;
+        const line2Y = line1Y + 12;
+        const line3Y = line2Y + 12;
+        const line4Y = line3Y + 12;
+
+        doc.font('Helvetica-Bold').fontSize(8.7).fillColor(colors.ink)
+          .text(fit(linkTitleLine(link), 28), textX, line1Y, { width: textW });
+        doc.font('Helvetica').fontSize(7.8).fillColor(colors.ink)
+          .text(fit(linkCoreLine(link), 42), textX, line2Y, { width: textW });
+        doc.font('Helvetica').fontSize(7.8).fillColor(colors.ink)
+          .text(linkPonOdcLine(link), textX, line3Y, { width: textW });
+
+        const id = val(link?.id, '-');
+        doc.font('Helvetica').fontSize(7.4).fillColor(colors.muted)
+          .text(`ID: ${id}`, textX, line4Y, { width: textW });
+
+        doc.font('Helvetica').fontSize(6.5).fillColor(colors.muted)
+          .text(fit(value, 70), x + pad, y + stickerH - pad - 7, { width: stickerW - pad * 2, align: 'left' });
+      }
+
+      offset += perPage;
+      if (links.length <= perPage) break;
+    }
+  }
+}
+
 async function nodeQrSection(nodes) {
   const withCoords = (nodes || []).filter((n) => mapsUrlForNode(n));
   if (!withCoords.length) return;
@@ -245,6 +404,13 @@ async function nodeQrSection(nodes) {
 }
 
 
+const stickerPosition = payload.stickers?.position === 'first' ? 'first' : 'last';
+const shouldRenderLinkStickers = (payload.type === 'links' || payload.type === 'link-stickers') && payload.stickers?.enabled && payload.links?.length;
+
+if (shouldRenderLinkStickers && stickerPosition === 'first') {
+  await linkStickerSheets(payload.links, payload.stickers);
+}
+
 drawHeader();
 doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
   .text(`Jenis laporan: ${val(payload.type)}`, page.margin, 100);
@@ -272,13 +438,17 @@ if ((payload.type === 'topology' || payload.type === 'nodes') && payload.nodes?.
   await nodeQrSection(payload.nodes);
 }
 
+if (shouldRenderLinkStickers && stickerPosition === 'last') {
+  await linkStickerSheets(payload.links, payload.stickers);
+}
+
 
 const range = doc.bufferedPageRange();
 for (let i = range.start; i < range.start + range.count; i += 1) {
   doc.switchToPage(i);
   doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
-    .text('Dokumen ini di-generate otomatis oleh Wifi Maps.', page.margin, 808, { width: 300 });
-  doc.text(`Halaman ${i + 1} / ${range.count}`, page.width - 126, 808, { width: 90, align: 'right' });
+    .text('Dokumen ini di-generate otomatis oleh Wifi Maps.', page.margin, page.height - page.margin - 14, { width: 300 });
+  doc.text(`Halaman ${i + 1} / ${range.count}`, page.width - 126, page.height - page.margin - 14, { width: 90, align: 'right' });
 }
 
 doc.end();

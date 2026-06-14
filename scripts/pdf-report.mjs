@@ -809,7 +809,7 @@ for (let i = range.start; i < range.start + range.count; i += 1) {
   doc.switchToPage(i);
   doc.moveTo(page.margin, page.height - page.margin - 22).lineTo(page.width - page.margin, page.height - page.margin - 22).strokeColor(colors.line).stroke();
   doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
-    .text('Dokumen ini di-generate otomatis oleh Wifi Maps.', page.margin, page.height - page.margin - 14, { width: 300 });
+    .text('Dokumen ini di buat oleh PT. jasa Online nusantara.', page.margin, page.height - page.margin - 14, { width: 300 });
   doc.text(`Halaman ${i + 1} / ${range.count}`, page.width - 126, page.height - page.margin - 14, { width: 90, align: 'right' });
 }
 

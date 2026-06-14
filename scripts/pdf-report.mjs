@@ -412,10 +412,10 @@ async function nodeVisualA4Sheets(nodes) {
       .text(`${val(node.code)} - ${val(node.name)}`, contentX + 16, titleY + 14, { width: contentW - 32 });
     doc.font('Helvetica').fontSize(10).fillColor(colors.blueDark)
       .text(val(node.type_label || node.type, 'Node'), contentX + 16, titleY + 40, { width: 180 });
-    doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
-      .text(`Dibuat: ${val(payload.generated_at)}`, contentX + contentW - 196, titleY + 18, { width: 174, align: 'right' });
-    doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
-      .text(`Halaman data ${index + 1} dari ${nodes.length}`, contentX + contentW - 196, titleY + 42, { width: 174, align: 'right' });
+    // doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
+    //   .text(`Dibuat: ${val(payload.generated_at)}`, contentX + contentW - 196, titleY + 18, { width: 174, align: 'right' });
+    // doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
+    //   .text(`Halaman data ${index + 1} dari ${nodes.length}`, contentX + contentW - 196, titleY + 42, { width: 174, align: 'right' });
 
     const rowY = titleY + 112;
     const gap = 18;

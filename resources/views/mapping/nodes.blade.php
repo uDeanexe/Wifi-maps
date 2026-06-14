@@ -14,7 +14,7 @@
         </div>
     </div>
 
-    <form method="get" action="{{ route('nodes.index') }}" class="panel mb-5 grid gap-4 p-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto] lg:items-end">
+    <form method="get" action="{{ route('nodes.index') }}" class="panel mb-5 grid gap-4 p-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1fr_auto] lg:items-end">
         <label class="grid gap-2">
             <span class="form-label">Cari</span>
             <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat, catatan...">
@@ -43,6 +43,14 @@
                 <option value="with" @selected(($filters['coords'] ?? '') === 'with')>Ada koordinat</option>
                 <option value="without" @selected(($filters['coords'] ?? '') === 'without')>Belum ada koordinat</option>
             </select>
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Dari Tanggal</span>
+            <input name="date_from" type="date" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Sampai Tanggal</span>
+            <input name="date_to" type="date" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
         </label>
         <div class="flex flex-wrap gap-2">
             <button class="btn-primary">Terapkan</button>

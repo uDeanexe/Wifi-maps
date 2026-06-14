@@ -227,7 +227,9 @@ class ReportController extends Controller
             ->when($filters['coords'] === 'with', fn (Builder $query) => $query->whereNotNull('latitude')->whereNotNull('longitude'))
             ->when($filters['coords'] === 'without', fn (Builder $query) => $query->where(function (Builder $query): void {
                 $query->whereNull('latitude')->orWhereNull('longitude');
-            }));
+            }))
+            ->when($filters['date_from'], fn (Builder $query, $date) => $query->whereDate('created_at', '>=', $date))
+            ->when($filters['date_to'], fn (Builder $query, $date) => $query->whereDate('created_at', '<=', $date));
     }
 
     private function nodeFilters(): array
@@ -237,6 +239,8 @@ class ReportController extends Controller
             'type' => request('type'),
             'photo' => request('photo'),
             'coords' => request('coords'),
+            'date_from' => request('date_from'),
+            'date_to' => request('date_to'),
         ];
     }
 

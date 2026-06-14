@@ -19,44 +19,69 @@
         </div>
     </div>
 
-    <form method="get" action="{{ route('map') }}" class="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto] lg:items-end">
-        <label class="grid gap-2">
-            <span class="form-label">Cari</span>
-            <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat, catatan...">
-        </label>
-        <label class="grid gap-2">
-            <span class="form-label">Tipe Node</span>
-            <select name="type" class="form-control">
-                <option value="">Semua tipe</option>
-                @foreach ($nodeTypes as $type)
-                    <option value="{{ $type->id }}" @selected((string) ($filters['type'] ?? '') === (string) $type->id)>{{ $type->label }}</option>
-                @endforeach
-            </select>
-        </label>
-        <label class="grid gap-2">
-            <span class="form-label">Foto</span>
-            <select name="photo" class="form-control">
-                <option value="">Semua</option>
-                <option value="with" @selected(($filters['photo'] ?? '') === 'with')>Ada foto</option>
-                <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
-            </select>
-        </label>
-        <label class="grid gap-2">
-            <span class="form-label">Koordinat</span>
-            <select name="coords" class="form-control">
-                <option value="">Semua</option>
-                <option value="with" @selected(($filters['coords'] ?? '') === 'with')>Ada koordinat</option>
-                <option value="without" @selected(($filters['coords'] ?? '') === 'without')>Belum ada koordinat</option>
-            </select>
-        </label>
-        <div class="flex flex-wrap gap-2">
-            <button class="btn-primary">Terapkan</button>
-            <a class="btn" href="{{ route('map') }}">Reset</a>
-        </div>
-    </form>
-
     <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div id="network-map" class="h-full w-full"></div>
+        <details class="absolute left-3 bottom-3 z-[600] w-[min(390px,calc(100%-1.5rem))]">
+            <summary class="inline-flex cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 bg-white/95 px-4 py-2.5 text-sm font-bold text-slate-800 shadow-sm backdrop-blur transition-colors hover:bg-slate-50">
+                Filter
+            </summary>
+            <form method="get" action="{{ route('map') }}" class="mt-2 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+                <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                        <div class="text-sm font-black text-slate-900">Filter Map</div>
+                        <div class="mt-1 text-xs text-slate-500">Hasil filter ikut ke PDF dan CSV.</div>
+                    </div>
+                    <a class="text-xs font-bold text-slate-500 hover:text-slate-900" href="{{ route('map') }}">Reset</a>
+                </div>
+                <label class="grid gap-2">
+                    <span class="form-label">Cari</span>
+                    <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat...">
+                </label>
+                <label class="grid gap-2">
+                    <span class="form-label">Tipe Node</span>
+                    <select name="type" class="form-control">
+                        <option value="">Semua tipe</option>
+                        @foreach ($nodeTypes as $type)
+                            <option value="{{ $type->id }}" @selected((string) ($filters['type'] ?? '') === (string) $type->id)>{{ $type->label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="grid gap-2">
+                        <span class="form-label">Foto</span>
+                        <select name="photo" class="form-control">
+                            <option value="">Semua</option>
+                            <option value="with" @selected(($filters['photo'] ?? '') === 'with')>Ada foto</option>
+                            <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
+                        </select>
+                    </label>
+                    <label class="grid gap-2">
+                        <span class="form-label">Koordinat</span>
+                        <select name="coords" class="form-control">
+                            <option value="">Semua</option>
+                            <option value="with" @selected(($filters['coords'] ?? '') === 'with')>Ada koordinat</option>
+                            <option value="without" @selected(($filters['coords'] ?? '') === 'without')>Belum ada koordinat</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div class="mb-2 text-xs font-bold uppercase text-slate-500">Tanggal dibuat</div>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <label class="grid gap-2">
+                            <span class="form-label">Dari</span>
+                            <input name="date_from" type="date" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
+                        </label>
+                        <label class="grid gap-2">
+                            <span class="form-label">Sampai</span>
+                            <input name="date_to" type="date" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
+                        </label>
+                    </div>
+                </div>
+                <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                    <button class="btn-primary">Terapkan Filter</button>
+                </div>
+            </form>
+        </details>
         <div class="absolute left-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
             {{ count($mapNodes) }} node / {{ count($mapLinks) }} link tampil
             <span class="ml-2 text-slate-500">Update: {{ $generatedAt }}</span>
@@ -80,6 +105,10 @@
 
         #network-map .leaflet-top.leaflet-left {
             top: 52px;
+        }
+
+        details > summary::-webkit-details-marker {
+            display: none;
         }
     </style>
 

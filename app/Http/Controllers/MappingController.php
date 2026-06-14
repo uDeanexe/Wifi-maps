@@ -186,7 +186,9 @@ class MappingController extends Controller
             ->when(($filters['coords'] ?? null) === 'with', fn ($query) => $query->whereNotNull('latitude')->whereNotNull('longitude'))
             ->when(($filters['coords'] ?? null) === 'without', fn ($query) => $query->where(function ($query): void {
                 $query->whereNull('latitude')->orWhereNull('longitude');
-            }));
+            }))
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->whereDate('created_at', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->whereDate('created_at', '<=', $date));
     }
 
     private function nodeFilters(): array
@@ -196,6 +198,8 @@ class MappingController extends Controller
             'type' => request('type'),
             'photo' => request('photo'),
             'coords' => request('coords'),
+            'date_from' => request('date_from'),
+            'date_to' => request('date_to'),
         ];
     }
 

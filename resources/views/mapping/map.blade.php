@@ -27,22 +27,31 @@
         ];
     @endphp
 
-    <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h2 class="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">Peta Jaringan</h2>
-            <p class="mt-1 text-sm text-slate-500">Marker + polyline berdasarkan koordinat GPS (OpenStreetMap).</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-3">
-            @foreach ($reportActions as $action)
-                <button type="button" class="btn" data-report-confirm data-report-label="{{ $action['label'] }}" data-report-url="{{ $action['url'] }}">{{ $action['label'] }}</button>
-            @endforeach
-            <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
-                onclick="window.location.reload()"
-            >
-                Segarkan
-            </button>
+    <div class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+                <h2 class="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">Peta Jaringan</h2>
+                <p class="mt-1 text-sm text-slate-500">Pantau node, link, filter data, lalu cetak report sesuai kebutuhan.</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @forelse ($activeFilterSummary as $label => $value)
+                        <span class="map-filter-chip">{{ $label }}: {{ $value }}</span>
+                    @empty
+                        <span class="map-filter-chip is-muted">Semua data tampil</span>
+                    @endforelse
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                @foreach ($reportActions as $action)
+                    <button type="button" class="map-action-btn" data-report-confirm data-report-label="{{ $action['label'] }}" data-report-url="{{ $action['url'] }}">{{ $action['label'] }}</button>
+                @endforeach
+                <button
+                    type="button"
+                    class="map-action-btn bg-slate-50"
+                    onclick="window.location.reload()"
+                >
+                    Segarkan
+                </button>
+            </div>
         </div>
     </div>
 
@@ -51,21 +60,21 @@
             <div class="modal-header">
                 <div>
                     <h3 class="text-lg font-black text-slate-900">Konfirmasi Report</h3>
-                    <p class="mt-1 text-sm text-slate-500">Pilih filter yang akan dipakai untuk report ini.</p>
+                    <p class="mt-1 text-sm text-slate-500">Filter awal mengikuti Map View. Ubah jika perlu sebelum download.</p>
                 </div>
                 <button type="button" class="btn" data-modal-close>Tutup</button>
             </div>
             <div class="modal-body grid gap-4">
-                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div class="rounded-lg border border-sky-100 bg-sky-50 p-4">
                     <div class="text-xs font-bold uppercase text-slate-500">Jenis report</div>
-                    <div class="mt-1 text-base font-black text-slate-900" data-report-selected>-</div>
+                    <div class="mt-1 text-lg font-black text-slate-950" data-report-selected>-</div>
                 </div>
                 <div class="grid gap-3">
-                    <label class="grid gap-2">
+                    <label class="filter-field">
                         <span class="form-label">Cari</span>
                         <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat...">
                     </label>
-                    <label class="grid gap-2">
+                    <label class="filter-field">
                         <span class="form-label">Tipe Node</span>
                         <select name="type" class="form-control">
                             <option value="">Semua tipe</option>
@@ -75,7 +84,7 @@
                         </select>
                     </label>
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <label class="grid gap-2">
+                        <label class="filter-field">
                             <span class="form-label">Foto</span>
                             <select name="photo" class="form-control">
                                 <option value="">Semua</option>
@@ -83,7 +92,7 @@
                                 <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
                             </select>
                         </label>
-                        <label class="grid gap-2">
+                        <label class="filter-field">
                             <span class="form-label">Koordinat</span>
                             <select name="coords" class="form-control">
                                 <option value="">Semua</option>
@@ -95,11 +104,11 @@
                     <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
                         <div class="mb-2 text-xs font-bold uppercase text-slate-500">Tanggal</div>
                         <div class="grid gap-3 sm:grid-cols-2">
-                            <label class="grid gap-2">
+                            <label class="filter-field">
                                 <span class="form-label">Dari</span>
                                 <input name="date_from" type="date" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
                             </label>
-                            <label class="grid gap-2">
+                            <label class="filter-field">
                                 <span class="form-label">Sampai</span>
                                 <input name="date_to" type="date" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
                             </label>
@@ -119,11 +128,11 @@
 
     <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div id="network-map" class="h-full w-full"></div>
-        <details class="absolute left-3 bottom-3 z-[600] w-[min(390px,calc(100%-1.5rem))]">
-            <summary class="inline-flex cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 bg-white/95 px-4 py-2.5 text-sm font-bold text-slate-800 shadow-sm backdrop-blur transition-colors hover:bg-slate-50">
-                Filter
+        <details class="map-filter-popover absolute left-3 bottom-3 z-[600] w-[min(390px,calc(100%-1.5rem))]">
+            <summary class="inline-flex cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 bg-white/95 px-4 py-2.5 text-sm font-black text-slate-800 shadow-sm backdrop-blur transition-colors hover:bg-slate-50">
+                Filter{{ $activeFilterSummary->isNotEmpty() ? ' ('.$activeFilterSummary->count().')' : '' }}
             </summary>
-            <form method="get" action="{{ route('map') }}" class="mt-2 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+            <form method="get" action="{{ route('map') }}" class="mt-2 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
                 <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                     <div>
                         <div class="text-sm font-black text-slate-900">Filter Map</div>
@@ -131,11 +140,11 @@
                     </div>
                     <a class="text-xs font-bold text-slate-500 hover:text-slate-900" href="{{ route('map') }}">Reset</a>
                 </div>
-                <label class="grid gap-2">
+                <label class="filter-field">
                     <span class="form-label">Cari</span>
                     <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat...">
                 </label>
-                <label class="grid gap-2">
+                <label class="filter-field">
                     <span class="form-label">Tipe Node</span>
                     <select name="type" class="form-control">
                         <option value="">Semua tipe</option>
@@ -145,7 +154,7 @@
                     </select>
                 </label>
                 <div class="grid gap-3 sm:grid-cols-2">
-                    <label class="grid gap-2">
+                    <label class="filter-field">
                         <span class="form-label">Foto</span>
                         <select name="photo" class="form-control">
                             <option value="">Semua</option>
@@ -153,7 +162,7 @@
                             <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
                         </select>
                     </label>
-                    <label class="grid gap-2">
+                    <label class="filter-field">
                         <span class="form-label">Koordinat</span>
                         <select name="coords" class="form-control">
                             <option value="">Semua</option>
@@ -165,11 +174,11 @@
                 <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div class="mb-2 text-xs font-bold uppercase text-slate-500">Tanggal</div>
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <label class="grid gap-2">
+                        <label class="filter-field">
                             <span class="form-label">Dari</span>
                             <input name="date_from" type="date" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
                         </label>
-                        <label class="grid gap-2">
+                        <label class="filter-field">
                             <span class="form-label">Sampai</span>
                             <input name="date_to" type="date" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
                         </label>
@@ -180,11 +189,13 @@
                 </div>
             </form>
         </details>
-        <div class="absolute left-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
-            {{ count($mapNodes) }} node / {{ count($mapLinks) }} link tampil
-            <span class="ml-2 text-slate-500">Update: {{ $generatedAt }}</span>
+        <div class="map-status-badge absolute left-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
+            <span class="font-black text-slate-900">{{ count($mapNodes) }} node</span>
+            <span class="mx-1 text-slate-300">/</span>
+            <span class="font-black text-slate-900">{{ count($mapLinks) }} link</span>
+            <span class="ml-2 text-slate-500">Update {{ $generatedAt }}</span>
         </div>
-        <div class="absolute right-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
+        <div class="map-routing-badge absolute right-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
             <span class="text-slate-500">Routing:</span> <span data-osrm-status>{{ config('services.osrm.enabled', true) ? 'Checking...' : 'OFF' }}</span>
         </div>
     </div>
@@ -207,6 +218,72 @@
 
         details > summary::-webkit-details-marker {
             display: none;
+        }
+
+        .map-action-btn {
+            display: inline-flex;
+            min-height: 42px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 800;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+            transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+        }
+
+        .map-action-btn:hover {
+            border-color: #bae6fd;
+            background: #f0f9ff;
+            transform: translateY(-1px);
+        }
+
+        .map-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            border: 1px solid #bae6fd;
+            background: #f0f9ff;
+            padding: 0.375rem 0.625rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #075985;
+        }
+
+        .map-filter-chip.is-muted {
+            border-color: #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+        }
+
+        .filter-field {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .map-filter-popover[open] > summary {
+            border-color: #7dd3fc;
+            background: #f0f9ff;
+            color: #075985;
+        }
+
+        @media (max-width: 640px) {
+            .map-status-badge {
+                left: 0.75rem;
+                right: 0.75rem;
+                max-width: none;
+                width: auto;
+            }
+
+            .map-routing-badge {
+                left: 0.75rem;
+                right: auto;
+                top: 3.35rem;
+            }
         }
     </style>
 

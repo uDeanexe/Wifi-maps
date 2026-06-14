@@ -257,6 +257,44 @@ function drawImageSlot(label, imagePath, x, y, width, height, fallbackText) {
   drawImagePlaceholder(fallbackText, x, y, width, height);
 }
 
+async function drawMapSlot(node, imagePath, x, y, width, height) {
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(colors.muted)
+    .text('Lokasi Google Maps', x, y - 13, { width });
+
+  if (imagePath) {
+    doc.roundedRect(x, y, width, height, 6).strokeColor(colors.line).stroke();
+    doc.save();
+    doc.roundedRect(x, y, width, height, 6).clip();
+    doc.image(imagePath, x, y, { width, height, fit: [width, height], align: 'center', valign: 'center' });
+    doc.restore();
+    return;
+  }
+
+  const mapsUrl = mapsUrlForNode(node);
+  doc.roundedRect(x, y, width, height, 6).fillAndStroke(colors.softBlue, '#bfdbfe');
+
+  if (!mapsUrl) {
+    doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
+      .text('Koordinat belum tersedia', x + 12, y + height / 2 - 5, { width: width - 24, align: 'center' });
+    return;
+  }
+
+  const qrSize = 82;
+  const qr = await QRCode.toBuffer(mapsUrl, { type: 'png', margin: 1, width: qrSize });
+  const qrX = x + 16;
+  const qrY = y + Math.floor((height - qrSize) / 2);
+  doc.image(qr, qrX, qrY, { width: qrSize, height: qrSize });
+
+  const textX = qrX + qrSize + 14;
+  const textW = width - (textX - x) - 14;
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.blueDark)
+    .text('Scan lokasi', textX, y + 34, { width: textW });
+  doc.font('Helvetica').fontSize(8.5).fillColor(colors.ink)
+    .text(`${val(node.latitude)}, ${val(node.longitude)}`, textX, y + 51, { width: textW });
+  doc.font('Helvetica').fontSize(7.2).fillColor(colors.faint)
+    .text(fit(mapsUrl, 48), textX, y + 72, { width: textW });
+}
+
 async function nodeVisualCards(nodes) {
   if (!nodes?.length) return;
 
@@ -295,14 +333,13 @@ async function nodeVisualCards(nodes) {
       'Foto tiang tidak tersedia',
     );
 
-    drawImageSlot(
-      'Gambar Maps',
+    await drawMapSlot(
+      node,
       mapPath,
       page.margin + pad + imageW + gap,
       imageY,
       imageW,
       imageH,
-      'Gambar map tidak tersedia',
     );
 
     doc.font('Helvetica').fontSize(9).fillColor(colors.ink)

@@ -1,14 +1,40 @@
 <x-layouts.app title="Map View">
+    @php
+        $typeLabel = collect($nodeTypes)->firstWhere('id', (int) ($filters['type'] ?? 0))?->label;
+        $filterSummary = [
+            'Cari' => $filters['q'] ?: 'Semua',
+            'Tipe Node' => $typeLabel ?: 'Semua tipe',
+            'Foto' => match ($filters['photo'] ?? '') {
+                'with' => 'Ada foto',
+                'without' => 'Belum ada foto',
+                default => 'Semua',
+            },
+            'Koordinat' => match ($filters['coords'] ?? '') {
+                'with' => 'Ada koordinat',
+                'without' => 'Belum ada koordinat',
+                default => 'Semua',
+            },
+            'Tanggal dibuat' => ($filters['date_from'] || $filters['date_to'])
+                ? (($filters['date_from'] ?: 'awal').' sampai '.($filters['date_to'] ?: 'sekarang'))
+                : 'Semua tanggal',
+        ];
+        $reportActions = [
+            ['label' => 'Report PDF (Full)', 'url' => route('reports.topology.pdf', request()->query())],
+            ['label' => 'PDF Node', 'url' => route('reports.nodes.pdf', request()->query())],
+            ['label' => 'PDF Visual A4', 'url' => route('reports.nodes.visual-a4.pdf', request()->query())],
+            ['label' => 'PDF Link', 'url' => route('reports.links.pdf', request()->query())],
+        ];
+    @endphp
+
     <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">Peta Jaringan</h2>
             <p class="mt-1 text-sm text-slate-500">Marker + polyline berdasarkan koordinat GPS (OpenStreetMap).</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-            <a class="btn" href="{{ route('reports.topology.pdf', request()->query()) }}">Report PDF (Full)</a>
-            <a class="btn" href="{{ route('reports.nodes.pdf', request()->query()) }}">PDF Node</a>
-            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf', request()->query()) }}">PDF Visual A4</a>
-            <a class="btn" href="{{ route('reports.links.pdf', request()->query()) }}">PDF Link</a>
+            @foreach ($reportActions as $action)
+                <button type="button" class="btn" data-report-confirm data-report-label="{{ $action['label'] }}" data-report-url="{{ $action['url'] }}">{{ $action['label'] }}</button>
+            @endforeach
             <button
                 type="button"
                 class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
@@ -18,6 +44,37 @@
             </button>
         </div>
     </div>
+
+    <dialog id="report-confirm-modal" class="modal-shell">
+        <div class="modal-header">
+            <div>
+                <h3 class="text-lg font-black text-slate-900">Konfirmasi Report</h3>
+                <p class="mt-1 text-sm text-slate-500">Report akan dibuat berdasarkan filter Map View saat ini.</p>
+            </div>
+            <button type="button" class="btn" data-modal-close>Tutup</button>
+        </div>
+        <div class="modal-body grid gap-4">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div class="text-xs font-bold uppercase text-slate-500">Jenis report</div>
+                <div class="mt-1 text-base font-black text-slate-900" data-report-selected>-</div>
+            </div>
+            <div class="grid gap-2">
+                @foreach ($filterSummary as $label => $value)
+                    <div class="flex items-start justify-between gap-4 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                        <span class="font-semibold text-slate-500">{{ $label }}</span>
+                        <span class="text-right font-bold text-slate-900">{{ $value }}</span>
+                    </div>
+                @endforeach
+            </div>
+            <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">
+                Data tampil: {{ count($mapNodes) }} node / {{ count($mapLinks) }} link. Dibuat: {{ $generatedAt }}.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn" data-modal-close>Batal</button>
+            <a class="btn-primary" href="#" data-report-continue>Lanjut Download</a>
+        </div>
+    </dialog>
 
     <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div id="network-map" class="h-full w-full"></div>
@@ -123,6 +180,19 @@
             const MAX_ZOOM = 18;
             const osrmEnabled = @json((bool) config('services.osrm.enabled', true));
             const osrmStatusEl = document.querySelector('[data-osrm-status]');
+            const reportModal = document.getElementById('report-confirm-modal');
+            const reportSelected = document.querySelector('[data-report-selected]');
+            const reportContinue = document.querySelector('[data-report-continue]');
+
+            document.querySelectorAll('[data-report-confirm]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    if (!reportModal || !reportContinue || !reportSelected) return;
+                    reportSelected.textContent = button.dataset.reportLabel || '-';
+                    reportContinue.href = button.dataset.reportUrl || '#';
+                    reportModal.showModal();
+                    document.body.classList.add('overflow-hidden');
+                });
+            });
 
             const colors = {
                 odc: '#7c3aed',

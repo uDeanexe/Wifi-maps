@@ -251,6 +251,39 @@ async function linkStickerSheets(links, options = {}) {
     return png;
   }
 
+  function drawCutGuides() {
+    doc.save();
+    doc.strokeColor('#cbd5e1').lineWidth(0.8).dash(3, { space: 3 });
+
+    const left = page.margin;
+    const top = startY;
+    const right = page.width - page.margin;
+    const bottom = startY + rows * stickerH + (rows - 1) * gap;
+
+    // Outer boundary
+    doc.rect(left, top, right - left, bottom - top).stroke();
+
+    // Vertical guides
+    for (let c = 1; c < cols; c += 1) {
+      const x = left + c * stickerW + (c - 0.5) * gap;
+      doc.moveTo(x, top).lineTo(x, bottom).stroke();
+    }
+
+    // Horizontal guides
+    for (let r = 1; r < rows; r += 1) {
+      const y = top + r * stickerH + (r - 0.5) * gap;
+      doc.moveTo(left, y).lineTo(right, y).stroke();
+    }
+
+    doc.undash();
+    doc.restore();
+  }
+
+  function safeText(text, x, y, width, font, size, color) {
+    doc.font(font).fontSize(size).fillColor(color);
+    doc.text(text, x, y, { width, height: size + 2, lineBreak: false, ellipsis: true });
+  }
+
   for (let copy = 1; copy <= copies; copy += 1) {
     let offset = 0;
     while (offset < links.length || offset === 0) {
@@ -259,8 +292,9 @@ async function linkStickerSheets(links, options = {}) {
       doc.font('Helvetica-Bold').fontSize(13).fillColor(colors.ink)
         .text(`Sticker Link (QR) - Lembar ${copy} / ${copies}`, page.margin, page.margin, { width: page.width - 72 });
       doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
-        .text('Tempel sticker ini di kabel (sisi sumber & tujuan). Scan QR untuk lihat identitas link.', page.margin, page.margin + 16, { width: page.width - 72 });
+        .text('Tempel sticker ini di kabel (sisi sumber & tujuan). Scan QR untuk lihat identitas link. Gunting mengikuti garis putus-putus.', page.margin, page.margin + 16, { width: page.width - 72 });
       doc.moveTo(page.margin, startY - 6).lineTo(page.width - page.margin, startY - 6).strokeColor(colors.line).stroke();
+      drawCutGuides();
 
       const chunk = links.slice(offset, offset + perPage);
       if (!chunk.length) {
@@ -293,16 +327,12 @@ async function linkStickerSheets(links, options = {}) {
         const line3Y = line2Y + 12;
         const line4Y = line3Y + 12;
 
-        doc.font('Helvetica-Bold').fontSize(8.7).fillColor(colors.ink)
-          .text(fit(linkTitleLine(link), 28), textX, line1Y, { width: textW });
-        doc.font('Helvetica').fontSize(7.8).fillColor(colors.ink)
-          .text(fit(linkCoreLine(link), 42), textX, line2Y, { width: textW });
-        doc.font('Helvetica').fontSize(7.8).fillColor(colors.ink)
-          .text(linkPonOdcLine(link), textX, line3Y, { width: textW });
+        safeText(fit(linkTitleLine(link), 28), textX, line1Y, textW, 'Helvetica-Bold', 8.7, colors.ink);
+        safeText(fit(linkCoreLine(link), 42), textX, line2Y, textW, 'Helvetica', 7.8, colors.ink);
+        safeText(linkPonOdcLine(link), textX, line3Y, textW, 'Helvetica', 7.8, colors.ink);
 
         const id = val(link?.id, '-');
-        doc.font('Helvetica').fontSize(7.4).fillColor(colors.muted)
-          .text(`ID: ${id}`, textX, line4Y, { width: textW });
+        safeText(`ID: ${id}`, textX, line4Y, textW, 'Helvetica', 7.4, colors.muted);
 
         doc.font('Helvetica').fontSize(6.2).fillColor(colors.muted)
           .text(fit(value, 70), x + pad, y + stickerH - pad - 8, { width: stickerW - pad * 2, align: 'left' });

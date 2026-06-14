@@ -7,6 +7,7 @@
         <div class="flex flex-wrap items-center gap-3">
             <a class="btn" href="{{ route('reports.topology.pdf') }}">Report PDF (Full)</a>
             <a class="btn" href="{{ route('reports.nodes.pdf') }}">PDF Node</a>
+            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">PDF Visual A4</a>
             <a class="btn" href="{{ route('reports.links.pdf') }}">PDF Link</a>
             <button
                 type="button"

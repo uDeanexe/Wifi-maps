@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/reports/topology.pdf', [ReportController::class, 'topologyPdf'])->name('reports.topology.pdf');
     Route::get('/reports/nodes.pdf', [ReportController::class, 'nodesPdf'])->name('reports.nodes.pdf');
+    Route::get('/reports/nodes/visual-a4.pdf', [ReportController::class, 'nodesVisualA4Pdf'])->name('reports.nodes.visual-a4.pdf');
     Route::get('/reports/links.pdf', [ReportController::class, 'linksPdf'])->name('reports.links.pdf');
     Route::get('/reports/links/stickers.pdf', [ReportController::class, 'linksStickersPdf'])->name('reports.links.stickers.all.pdf');
     Route::get('/reports/links/{link}/stickers.pdf', [ReportController::class, 'linkStickersPdf'])->name('reports.links.stickers.pdf');

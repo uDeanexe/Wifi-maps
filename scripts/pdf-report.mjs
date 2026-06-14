@@ -50,6 +50,7 @@ function reportTypeLabel(type) {
   return {
     topology: 'Topologi jaringan',
     nodes: 'Inventaris node',
+    'node-visual-a4': 'Dokumentasi lokasi A4',
     links: 'Inventaris link',
     'link-stickers': 'Sticker QR link',
   }[type] || val(type, 'Report');
@@ -241,6 +242,82 @@ function drawImagePlaceholder(text, x, y, width, height) {
   doc.restore();
 }
 
+async function imageBufferFromUrl(url) {
+  if (!url || typeof fetch !== 'function') return null;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Wifi Maps PDF Report',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return null;
+    return Buffer.from(await response.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+function tilePointForLatLng(lat, lng, zoom) {
+  const scale = 2 ** zoom;
+  const sinLat = Math.sin((lat * Math.PI) / 180);
+  return {
+    x: ((lng + 180) / 360) * scale,
+    y: (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale,
+  };
+}
+
+function tileUrl(x, y, zoom) {
+  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+}
+
+async function drawOsmTileMap(node, x, y, width, height, zoom = 18) {
+  const lat = Number(node?.latitude);
+  const lng = Number(node?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+  const center = tilePointForLatLng(lat, lng, zoom);
+  const centerPx = { x: center.x * 256, y: center.y * 256 };
+  const topLeftPx = { x: centerPx.x - width / 2, y: centerPx.y - height / 2 };
+  const startTileX = Math.floor(topLeftPx.x / 256);
+  const startTileY = Math.floor(topLeftPx.y / 256);
+  const endTileX = Math.floor((topLeftPx.x + width) / 256);
+  const endTileY = Math.floor((topLeftPx.y + height) / 256);
+  const maxTile = 2 ** zoom;
+  let drawn = 0;
+
+  doc.save();
+  doc.roundedRect(x, y, width, height, 8).clip();
+  doc.rect(x, y, width, height).fill('#e2e8f0');
+
+  for (let tileX = startTileX; tileX <= endTileX; tileX += 1) {
+    for (let tileY = startTileY; tileY <= endTileY; tileY += 1) {
+      if (tileY < 0 || tileY >= maxTile) continue;
+      const wrappedTileX = ((tileX % maxTile) + maxTile) % maxTile;
+      const tile = await imageBufferFromUrl(tileUrl(wrappedTileX, tileY, zoom));
+      if (!tile) continue;
+      const drawX = x + tileX * 256 - topLeftPx.x;
+      const drawY = y + tileY * 256 - topLeftPx.y;
+      doc.image(tile, drawX, drawY, { width: 256, height: 256 });
+      drawn += 1;
+    }
+  }
+
+  doc.restore();
+
+  if (!drawn) return false;
+
+  const markerX = x + width / 2;
+  const markerY = y + height / 2;
+  doc.save();
+  doc.circle(markerX, markerY, 10).fillAndStroke(colors.red, '#ffffff');
+  doc.circle(markerX, markerY, 4).fill('#ffffff');
+  doc.restore();
+
+  return true;
+}
+
 function drawImageSlot(label, imagePath, x, y, width, height, fallbackText) {
   doc.font('Helvetica-Bold').fontSize(8).fillColor(colors.muted)
     .text(label, x, y - 13, { width });
@@ -293,6 +370,91 @@ async function drawMapSlot(node, imagePath, x, y, width, height) {
     .text(`${val(node.latitude)}, ${val(node.longitude)}`, textX, y + 51, { width: textW });
   doc.font('Helvetica').fontSize(7.2).fillColor(colors.faint)
     .text(fit(mapsUrl, 48), textX, y + 72, { width: textW });
+}
+
+async function drawStaticMapImage(node, imagePath, x, y, width, height) {
+  const localPath = imagePath || resolveImagePath(node.map_image_file_path, node.map_image_path);
+  let image = localPath;
+
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.muted)
+    .text('Maps Lokasi', x, y - 15, { width });
+
+  if (image) {
+    doc.roundedRect(x, y, width, height, 8).strokeColor(colors.lineDark).stroke();
+    doc.save();
+    doc.roundedRect(x, y, width, height, 8).clip();
+    doc.image(image, x, y, { width, height, fit: [width, height], align: 'center', valign: 'center' });
+    doc.restore();
+    return;
+  }
+
+  if (await drawOsmTileMap(node, x, y, width, height)) {
+    return;
+  }
+
+  drawImagePlaceholder('Gambar maps belum bisa dimuat. Cek koordinat atau koneksi internet server.', x, y, width, height);
+}
+
+async function nodeVisualA4Sheets(nodes) {
+  if (!nodes?.length) return;
+
+  for (const [index, node] of nodes.entries()) {
+    doc.addPage();
+
+    const contentX = page.margin;
+    const contentW = page.width - page.margin * 2;
+    const titleY = page.margin;
+    const photoPath = resolveImagePath(node.photo_file_path, node.photo_path);
+    const mapsUrl = mapsUrlForNode(node);
+
+    doc.roundedRect(contentX, titleY, contentW, 74, 10).fillAndStroke(colors.softBlue, '#bfdbfe');
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(colors.ink)
+      .text(`${val(node.code)} - ${val(node.name)}`, contentX + 16, titleY + 14, { width: contentW - 32 });
+    doc.font('Helvetica').fontSize(10).fillColor(colors.blueDark)
+      .text(val(node.type_label || node.type, 'Node'), contentX + 16, titleY + 40, { width: 180 });
+    doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
+      .text(`Halaman data ${index + 1} dari ${nodes.length}`, contentX + contentW - 172, titleY + 42, { width: 150, align: 'right' });
+
+    const rowY = titleY + 112;
+    const gap = 18;
+    const imageW = (contentW - gap) / 2;
+    const imageH = 292;
+
+    drawImageSlot(
+      'Foto Tiang / Lokasi',
+      photoPath,
+      contentX,
+      rowY,
+      imageW,
+      imageH,
+      'Foto tiang tidak tersedia',
+    );
+
+    await drawStaticMapImage(
+      node,
+      null,
+      contentX + imageW + gap,
+      rowY,
+      imageW,
+      imageH,
+    );
+
+    const infoY = rowY + imageH + 28;
+    doc.roundedRect(contentX, infoY, contentW, 150, 8).fillAndStroke('#ffffff', colors.lineDark);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted)
+      .text('Detail Lokasi', contentX + 14, infoY + 14, { width: contentW - 28 });
+    doc.font('Helvetica').fontSize(10).fillColor(colors.ink)
+      .text(`Alamat: ${val(node.address)}`, contentX + 14, infoY + 36, { width: contentW - 28 });
+    doc.text(`Koordinat: ${val(node.latitude)}, ${val(node.longitude)}`, contentX + 14, infoY + 58, { width: contentW - 28 });
+    doc.text(`Catatan: ${val(node.notes)}`, contentX + 14, infoY + 80, { width: contentW - 28, height: 38 });
+
+    if (mapsUrl) {
+      doc.font('Helvetica').fontSize(8).fillColor(colors.faint)
+        .text(mapsUrl, contentX + 14, infoY + 124, { width: contentW - 28 });
+    }
+
+    doc.y = infoY + 170;
+  }
 }
 
 async function nodeVisualCards(nodes) {
@@ -585,40 +747,44 @@ if (shouldRenderLinkStickers && stickerPosition === 'first') {
   await linkStickerSheets(payload.links, payload.stickers);
 }
 
-drawHeader();
-doc.roundedRect(page.margin, 106, page.width - page.margin * 2, 34, 7).fillAndStroke(colors.softBlue, '#bfdbfe');
-doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
-  .text('Jenis laporan', page.margin + 12, 114, { width: 100 });
-doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.blueDark)
-  .text(reportTypeLabel(payload.type), page.margin + 12, 126, { width: 210 });
-doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
-  .text('Dibuat pada', page.width - 190, 114, { width: 142, align: 'right' });
-doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.ink)
-  .text(val(payload.generated_at), page.width - 190, 126, { width: 142, align: 'right' });
-doc.y = 158;
+if (payload.type === 'node-visual-a4') {
+  await nodeVisualA4Sheets(payload.nodes || []);
+} else {
+  drawHeader();
+  doc.roundedRect(page.margin, 106, page.width - page.margin * 2, 34, 7).fillAndStroke(colors.softBlue, '#bfdbfe');
+  doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
+    .text('Jenis laporan', page.margin + 12, 114, { width: 100 });
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.blueDark)
+    .text(reportTypeLabel(payload.type), page.margin + 12, 126, { width: 210 });
+  doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
+    .text('Dibuat pada', page.width - 190, 114, { width: 142, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.ink)
+    .text(val(payload.generated_at), page.width - 190, 126, { width: 142, align: 'right' });
+  doc.y = 158;
 
-if (payload.summary) summaryCards(payload.summary);
+  if (payload.summary) summaryCards(payload.summary);
 
-table('Daftar Node', [
-  { label: 'Kode', value: 'code', width: 70, bold: true, limit: 20 },
-  { label: 'Nama', value: 'name', width: 112, limit: 28 },
-  { label: 'Jenis', value: (row) => row.type_label || row.type, width: 76, limit: 22 },
-  { label: 'Koordinat', value: (row) => `${val(row.latitude)}, ${val(row.longitude)}`, width: 112, limit: 30 },
-  { label: 'Alamat / Catatan', value: (row) => row.address || row.notes, width: 153, limit: 44 },
-], payload.nodes);
+  table('Daftar Node', [
+    { label: 'Kode', value: 'code', width: 70, bold: true, limit: 20 },
+    { label: 'Nama', value: 'name', width: 112, limit: 28 },
+    { label: 'Jenis', value: (row) => row.type_label || row.type, width: 76, limit: 22 },
+    { label: 'Koordinat', value: (row) => `${val(row.latitude)}, ${val(row.longitude)}`, width: 112, limit: 30 },
+    { label: 'Alamat / Catatan', value: (row) => row.address || row.notes, width: 153, limit: 44 },
+  ], payload.nodes);
 
-table('Daftar Link', [
-  { label: 'Dari', value: 'source_code', width: 86, bold: true, limit: 22 },
-  { label: 'Ke', value: 'target_code', width: 86, bold: true, limit: 22 },
-  { label: 'Kabel', value: 'cable_type', width: 80, limit: 18 },
-  { label: 'Core', value: (row) => [row.core_count, row.core_number].filter(Boolean).join(' / '), width: 74, limit: 18 },
-  { label: 'PON / ODC', value: (row) => [row.pon_name, row.odc_name].filter(Boolean).join(' / '), width: 108, limit: 26 },
-  { label: 'Catatan', value: 'notes', width: 89, limit: 24 },
-], payload.links);
+  table('Daftar Link', [
+    { label: 'Dari', value: 'source_code', width: 86, bold: true, limit: 22 },
+    { label: 'Ke', value: 'target_code', width: 86, bold: true, limit: 22 },
+    { label: 'Kabel', value: 'cable_type', width: 80, limit: 18 },
+    { label: 'Core', value: (row) => [row.core_count, row.core_number].filter(Boolean).join(' / '), width: 74, limit: 18 },
+    { label: 'PON / ODC', value: (row) => [row.pon_name, row.odc_name].filter(Boolean).join(' / '), width: 108, limit: 26 },
+    { label: 'Catatan', value: 'notes', width: 89, limit: 24 },
+  ], payload.links);
 
-if ((payload.type === 'topology' || payload.type === 'nodes') && payload.nodes?.length) {
-  await nodeVisualCards(payload.nodes);
-  await nodeQrSection(payload.nodes);
+  if ((payload.type === 'topology' || payload.type === 'nodes') && payload.nodes?.length) {
+    await nodeVisualCards(payload.nodes);
+    await nodeQrSection(payload.nodes);
+  }
 }
 
 if (shouldRenderLinkStickers && stickerPosition === 'last') {

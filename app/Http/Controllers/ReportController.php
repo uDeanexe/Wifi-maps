@@ -41,6 +41,23 @@ class ReportController extends Controller
         return response()->download($path)->deleteFileAfterSend();
     }
 
+    public function nodesVisualA4Pdf()
+    {
+        $nodes = $this->nodeRows();
+        $path = $this->pdf->generate([
+            'type' => 'node-visual-a4',
+            'title' => 'Dokumentasi Lokasi Node',
+            'generated_at' => now()->format('Y-m-d H:i'),
+            'summary' => ['jumlah_node' => count($nodes)],
+            'nodes' => $nodes,
+            'layout' => [
+                'node_visual_a4' => true,
+            ],
+        ], 'nodes-visual-a4-'.now()->format('Y-m-d-His').'.pdf');
+
+        return response()->download($path)->deleteFileAfterSend();
+    }
+
     public function linksPdf()
     {
         $links = $this->linkRows();

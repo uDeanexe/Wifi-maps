@@ -15,6 +15,7 @@
         <div class="flex flex-wrap gap-3">
             <a class="btn" href="{{ route('reports.topology.pdf') }}">Report Topology</a>
             <a class="btn" href="{{ route('reports.nodes.pdf') }}">Report Node</a>
+            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">PDF Visual A4</a>
             <a class="btn" href="{{ route('reports.links.pdf') }}">Report Link</a>
             <a class="btn" href="{{ route('reports.nodes.csv') }}">Export Node CSV</a>
             <a class="btn" href="{{ route('reports.links.csv') }}">Export Link CSV</a>
@@ -55,6 +56,7 @@
                 <a class="btn" href="{{ route('nodes.index') }}">Data Node (tambah/edit)</a>
                 <a class="btn" href="{{ route('links.index') }}">Data Link (tambah/edit)</a>
                 <a class="btn" href="{{ route('reports.nodes.pdf') }}">Download PDF Node</a>
+                <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">Download PDF Visual A4</a>
                 <a class="btn" href="{{ route('reports.topology.pdf') }}">Download PDF Topology</a>
             </div>
             <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">

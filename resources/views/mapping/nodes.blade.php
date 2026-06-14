@@ -7,6 +7,7 @@
         <div class="flex flex-wrap gap-3">
             <input class="form-control w-72" data-table-search="#nodes-table" placeholder="Cari node...">
             <a class="btn" href="{{ route('reports.nodes.csv') }}">Export CSV</a>
+            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">PDF Visual A4</a>
             <button type="button" class="btn" data-modal-open="#nodes-import-modal">Import CSV</button>
             <button type="button" class="btn-primary" data-modal-open="#node-create-modal">Tambah Node</button>
         </div>

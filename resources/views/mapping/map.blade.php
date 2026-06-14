@@ -27,31 +27,31 @@
         ];
     @endphp
 
-    <div class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <div class="map-page-header mb-5">
+        <div class="flex min-w-0 flex-col gap-3">
             <div>
-                <h2 class="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">Peta Jaringan</h2>
-                <p class="mt-1 text-sm text-slate-500">Pantau node, link, filter data, lalu cetak report sesuai kebutuhan.</p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                    @forelse ($activeFilterSummary as $label => $value)
-                        <span class="map-filter-chip">{{ $label }}: {{ $value }}</span>
-                    @empty
-                        <span class="map-filter-chip is-muted">Semua data tampil</span>
-                    @endforelse
-                </div>
+                <h2 class="text-2xl font-black leading-7 text-slate-950 sm:text-3xl">Peta Jaringan</h2>
+                <p class="mt-1 text-sm font-medium text-slate-500">Pantau node, link, filter data, lalu cetak report sesuai kebutuhan.</p>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                @foreach ($reportActions as $action)
-                    <button type="button" class="map-action-btn" data-report-confirm data-report-label="{{ $action['label'] }}" data-report-url="{{ $action['url'] }}">{{ $action['label'] }}</button>
-                @endforeach
-                <button
-                    type="button"
-                    class="map-action-btn bg-slate-50"
-                    onclick="window.location.reload()"
-                >
-                    Segarkan
-                </button>
+            <div class="flex flex-wrap gap-2">
+                @forelse ($activeFilterSummary as $label => $value)
+                    <span class="map-filter-chip">{{ $label }}: {{ $value }}</span>
+                @empty
+                    <span class="map-filter-chip is-muted">Semua data tampil</span>
+                @endforelse
             </div>
+        </div>
+        <div class="map-actions">
+            @foreach ($reportActions as $action)
+                <button type="button" class="map-action-btn" data-report-confirm data-report-label="{{ $action['label'] }}" data-report-url="{{ $action['url'] }}">{{ $action['label'] }}</button>
+            @endforeach
+            <button
+                type="button"
+                class="map-action-btn is-refresh"
+                onclick="window.location.reload()"
+            >
+                Segarkan
+            </button>
         </div>
     </div>
 
@@ -220,6 +220,26 @@
             display: none;
         }
 
+        .map-page-header {
+            display: grid;
+            grid-template-columns: minmax(280px, 1fr) auto;
+            gap: 1rem;
+            align-items: end;
+            border: 1px solid #dbe3ef;
+            border-radius: 14px;
+            background: #ffffff;
+            padding: 1.125rem;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+        }
+
+        .map-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            max-width: 720px;
+        }
+
         .map-action-btn {
             display: inline-flex;
             min-height: 42px;
@@ -240,6 +260,11 @@
             border-color: #bae6fd;
             background: #f0f9ff;
             transform: translateY(-1px);
+        }
+
+        .map-action-btn.is-refresh {
+            background: #f8fafc;
+            color: #334155;
         }
 
         .map-filter-chip {
@@ -272,6 +297,19 @@
         }
 
         @media (max-width: 640px) {
+            .map-page-header {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+
+            .map-actions {
+                justify-content: stretch;
+            }
+
+            .map-action-btn {
+                flex: 1 1 145px;
+            }
+
             .map-status-badge {
                 left: 0.75rem;
                 right: 0.75rem;

@@ -43,11 +43,20 @@ class MappingController extends Controller
 
     public function map(): View
     {
-        $nodes = Node::with('type')->latest()->get();
-        $links = Link::with(['source.type', 'target.type'])->latest()->get();
+        $filters = $this->nodeFilters();
+        $nodes = $this->filteredNodeQuery($filters)->latest()->get();
+        $nodeIds = $nodes->pluck('id');
+        $links = Link::with(['source.type', 'target.type'])
+            ->whereIn('source_node_id', $nodeIds)
+            ->whereIn('target_node_id', $nodeIds)
+            ->latest()
+            ->get();
         $routesByLinkId = $this->ensureLinkRoutes($links);
 
         return view('mapping.map', [
+            'nodeTypes' => NodeType::orderBy('id')->get(),
+            'filters' => $filters,
+            'generatedAt' => now()->format('Y-m-d H:i'),
             'mapNodes' => $nodes->map(fn (Node $node) => [
                 'id' => $node->id,
                 'code' => $node->code,
@@ -145,12 +154,7 @@ class MappingController extends Controller
 
     public function nodes(): View
     {
-        $filters = [
-            'q' => trim((string) request('q')),
-            'type' => request('type'),
-            'photo' => request('photo'),
-            'coords' => request('coords'),
-        ];
+        $filters = $this->nodeFilters();
 
         return view('mapping.nodes', [
             'nodeTypes' => NodeType::orderBy('id')->get(),
@@ -183,6 +187,16 @@ class MappingController extends Controller
             ->when(($filters['coords'] ?? null) === 'without', fn ($query) => $query->where(function ($query): void {
                 $query->whereNull('latitude')->orWhereNull('longitude');
             }));
+    }
+
+    private function nodeFilters(): array
+    {
+        return [
+            'q' => trim((string) request('q')),
+            'type' => request('type'),
+            'photo' => request('photo'),
+            'coords' => request('coords'),
+        ];
     }
 
     public function storeNode(Request $request): RedirectResponse

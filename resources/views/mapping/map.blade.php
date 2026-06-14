@@ -5,10 +5,10 @@
             <p class="mt-1 text-sm text-slate-500">Marker + polyline berdasarkan koordinat GPS (OpenStreetMap).</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-            <a class="btn" href="{{ route('reports.topology.pdf') }}">Report PDF (Full)</a>
-            <a class="btn" href="{{ route('reports.nodes.pdf') }}">PDF Node</a>
-            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">PDF Visual A4</a>
-            <a class="btn" href="{{ route('reports.links.pdf') }}">PDF Link</a>
+            <a class="btn" href="{{ route('reports.topology.pdf', request()->query()) }}">Report PDF (Full)</a>
+            <a class="btn" href="{{ route('reports.nodes.pdf', request()->query()) }}">PDF Node</a>
+            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf', request()->query()) }}">PDF Visual A4</a>
+            <a class="btn" href="{{ route('reports.links.pdf', request()->query()) }}">PDF Link</a>
             <button
                 type="button"
                 class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
@@ -19,8 +19,48 @@
         </div>
     </div>
 
+    <form method="get" action="{{ route('map') }}" class="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto] lg:items-end">
+        <label class="grid gap-2">
+            <span class="form-label">Cari</span>
+            <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat, catatan...">
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Tipe Node</span>
+            <select name="type" class="form-control">
+                <option value="">Semua tipe</option>
+                @foreach ($nodeTypes as $type)
+                    <option value="{{ $type->id }}" @selected((string) ($filters['type'] ?? '') === (string) $type->id)>{{ $type->label }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Foto</span>
+            <select name="photo" class="form-control">
+                <option value="">Semua</option>
+                <option value="with" @selected(($filters['photo'] ?? '') === 'with')>Ada foto</option>
+                <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
+            </select>
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Koordinat</span>
+            <select name="coords" class="form-control">
+                <option value="">Semua</option>
+                <option value="with" @selected(($filters['coords'] ?? '') === 'with')>Ada koordinat</option>
+                <option value="without" @selected(($filters['coords'] ?? '') === 'without')>Belum ada koordinat</option>
+            </select>
+        </label>
+        <div class="flex flex-wrap gap-2">
+            <button class="btn-primary">Terapkan</button>
+            <a class="btn" href="{{ route('map') }}">Reset</a>
+        </div>
+    </form>
+
     <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div id="network-map" class="h-full w-full"></div>
+        <div class="absolute left-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
+            {{ count($mapNodes) }} node / {{ count($mapLinks) }} link tampil
+            <span class="ml-2 text-slate-500">Update: {{ $generatedAt }}</span>
+        </div>
         <div class="absolute right-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
             <span class="text-slate-500">Routing:</span> <span data-osrm-status>{{ config('services.osrm.enabled', true) ? 'Checking...' : 'OFF' }}</span>
         </div>
@@ -35,6 +75,10 @@
 
         /* Keep the layer toggle from overlapping the routing badge. */
         #network-map .leaflet-top.leaflet-right {
+            top: 52px;
+        }
+
+        #network-map .leaflet-top.leaflet-left {
             top: 52px;
         }
     </style>

@@ -14,15 +14,16 @@
                 'without' => 'Belum ada koordinat',
                 default => 'Semua',
             },
-            'Tanggal dibuat' => ($filters['date_from'] || $filters['date_to'])
+            'Tanggal' => ($filters['date_from'] || $filters['date_to'])
                 ? (($filters['date_from'] ?: 'awal').' sampai '.($filters['date_to'] ?: 'sekarang'))
                 : 'Semua tanggal',
         ];
+        $activeFilterSummary = collect($filterSummary)->reject(fn ($value) => in_array($value, ['Semua', 'Semua tipe', 'Semua tanggal'], true));
         $reportActions = [
-            ['label' => 'Report PDF (Full)', 'url' => route('reports.topology.pdf', request()->query())],
-            ['label' => 'PDF Node', 'url' => route('reports.nodes.pdf', request()->query())],
-            ['label' => 'PDF Visual A4', 'url' => route('reports.nodes.visual-a4.pdf', request()->query())],
-            ['label' => 'PDF Link', 'url' => route('reports.links.pdf', request()->query())],
+            ['label' => 'Report PDF (Full)', 'url' => route('reports.topology.pdf')],
+            ['label' => 'PDF Node', 'url' => route('reports.nodes.pdf')],
+            ['label' => 'PDF Visual A4', 'url' => route('reports.nodes.visual-a4.pdf')],
+            ['label' => 'PDF Link', 'url' => route('reports.links.pdf')],
         ];
     @endphp
 
@@ -46,34 +47,74 @@
     </div>
 
     <dialog id="report-confirm-modal" class="modal-shell">
-        <div class="modal-header">
-            <div>
-                <h3 class="text-lg font-black text-slate-900">Konfirmasi Report</h3>
-                <p class="mt-1 text-sm text-slate-500">Report akan dibuat berdasarkan filter Map View saat ini.</p>
+        <form method="get" action="#" data-report-form>
+            <div class="modal-header">
+                <div>
+                    <h3 class="text-lg font-black text-slate-900">Konfirmasi Report</h3>
+                    <p class="mt-1 text-sm text-slate-500">Pilih filter yang akan dipakai untuk report ini.</p>
+                </div>
+                <button type="button" class="btn" data-modal-close>Tutup</button>
             </div>
-            <button type="button" class="btn" data-modal-close>Tutup</button>
-        </div>
-        <div class="modal-body grid gap-4">
-            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div class="text-xs font-bold uppercase text-slate-500">Jenis report</div>
-                <div class="mt-1 text-base font-black text-slate-900" data-report-selected>-</div>
-            </div>
-            <div class="grid gap-2">
-                @foreach ($filterSummary as $label => $value)
-                    <div class="flex items-start justify-between gap-4 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                        <span class="font-semibold text-slate-500">{{ $label }}</span>
-                        <span class="text-right font-bold text-slate-900">{{ $value }}</span>
+            <div class="modal-body grid gap-4">
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <div class="text-xs font-bold uppercase text-slate-500">Jenis report</div>
+                    <div class="mt-1 text-base font-black text-slate-900" data-report-selected>-</div>
+                </div>
+                <div class="grid gap-3">
+                    <label class="grid gap-2">
+                        <span class="form-label">Cari</span>
+                        <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat...">
+                    </label>
+                    <label class="grid gap-2">
+                        <span class="form-label">Tipe Node</span>
+                        <select name="type" class="form-control">
+                            <option value="">Semua tipe</option>
+                            @foreach ($nodeTypes as $type)
+                                <option value="{{ $type->id }}" @selected((string) ($filters['type'] ?? '') === (string) $type->id)>{{ $type->label }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <label class="grid gap-2">
+                            <span class="form-label">Foto</span>
+                            <select name="photo" class="form-control">
+                                <option value="">Semua</option>
+                                <option value="with" @selected(($filters['photo'] ?? '') === 'with')>Ada foto</option>
+                                <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
+                            </select>
+                        </label>
+                        <label class="grid gap-2">
+                            <span class="form-label">Koordinat</span>
+                            <select name="coords" class="form-control">
+                                <option value="">Semua</option>
+                                <option value="with" @selected(($filters['coords'] ?? '') === 'with')>Ada koordinat</option>
+                                <option value="without" @selected(($filters['coords'] ?? '') === 'without')>Belum ada koordinat</option>
+                            </select>
+                        </label>
                     </div>
-                @endforeach
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div class="mb-2 text-xs font-bold uppercase text-slate-500">Tanggal</div>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="grid gap-2">
+                                <span class="form-label">Dari</span>
+                                <input name="date_from" type="date" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
+                            </label>
+                            <label class="grid gap-2">
+                                <span class="form-label">Sampai</span>
+                                <input name="date_to" type="date" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">
+                    Data Map View saat ini: {{ count($mapNodes) }} node / {{ count($mapLinks) }} link. Dibuat: {{ $generatedAt }}.
+                </div>
             </div>
-            <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">
-                Data tampil: {{ count($mapNodes) }} node / {{ count($mapLinks) }} link. Dibuat: {{ $generatedAt }}.
+            <div class="modal-footer">
+                <button type="button" class="btn" data-modal-close>Batal</button>
+                <button class="btn-primary">Lanjut Download</button>
             </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn" data-modal-close>Batal</button>
-            <a class="btn-primary" href="#" data-report-continue>Lanjut Download</a>
-        </div>
+        </form>
     </dialog>
 
     <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -122,7 +163,7 @@
                     </label>
                 </div>
                 <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <div class="mb-2 text-xs font-bold uppercase text-slate-500">Tanggal dibuat</div>
+                    <div class="mb-2 text-xs font-bold uppercase text-slate-500">Tanggal</div>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="grid gap-2">
                             <span class="form-label">Dari</span>
@@ -182,13 +223,13 @@
             const osrmStatusEl = document.querySelector('[data-osrm-status]');
             const reportModal = document.getElementById('report-confirm-modal');
             const reportSelected = document.querySelector('[data-report-selected]');
-            const reportContinue = document.querySelector('[data-report-continue]');
+            const reportForm = document.querySelector('[data-report-form]');
 
             document.querySelectorAll('[data-report-confirm]').forEach((button) => {
                 button.addEventListener('click', () => {
-                    if (!reportModal || !reportContinue || !reportSelected) return;
+                    if (!reportModal || !reportForm || !reportSelected) return;
                     reportSelected.textContent = button.dataset.reportLabel || '-';
-                    reportContinue.href = button.dataset.reportUrl || '#';
+                    reportForm.action = button.dataset.reportUrl || '#';
                     reportModal.showModal();
                     document.body.classList.add('overflow-hidden');
                 });

@@ -269,7 +269,7 @@ function tilePointForLatLng(lat, lng, zoom) {
 }
 
 function tileUrl(x, y, zoom) {
-  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+  return `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`;
 }
 
 async function drawOsmTileMap(node, x, y, width, height, zoom = 18) {
@@ -289,7 +289,7 @@ async function drawOsmTileMap(node, x, y, width, height, zoom = 18) {
 
   doc.save();
   doc.roundedRect(x, y, width, height, 8).clip();
-  doc.rect(x, y, width, height).fill('#e2e8f0');
+  doc.rect(x, y, width, height).fill('#1f2937');
 
   for (let tileX = startTileX; tileX <= endTileX; tileX += 1) {
     for (let tileY = startTileY; tileY <= endTileY; tileY += 1) {
@@ -311,7 +311,7 @@ async function drawOsmTileMap(node, x, y, width, height, zoom = 18) {
   const markerX = x + width / 2;
   const markerY = y + height / 2;
   doc.save();
-  doc.circle(markerX, markerY, 10).fillAndStroke(colors.red, '#ffffff');
+  doc.circle(markerX, markerY, 11).fillAndStroke(colors.red, '#ffffff');
   doc.circle(markerX, markerY, 4).fill('#ffffff');
   doc.restore();
 
@@ -377,7 +377,7 @@ async function drawStaticMapImage(node, imagePath, x, y, width, height) {
   let image = localPath;
 
   doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.muted)
-    .text('Maps Lokasi', x, y - 15, { width });
+    .text('Earth / Satellite Map', x, y - 15, { width });
 
   if (image) {
     doc.roundedRect(x, y, width, height, 8).strokeColor(colors.lineDark).stroke();
@@ -443,14 +443,24 @@ async function nodeVisualA4Sheets(nodes) {
     doc.roundedRect(contentX, infoY, contentW, 150, 8).fillAndStroke('#ffffff', colors.lineDark);
     doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted)
       .text('Detail Lokasi', contentX + 14, infoY + 14, { width: contentW - 28 });
+    const qrBox = 94;
+    const detailTextW = mapsUrl ? contentW - qrBox - 38 : contentW - 28;
     doc.font('Helvetica').fontSize(10).fillColor(colors.ink)
-      .text(`Alamat: ${val(node.address)}`, contentX + 14, infoY + 36, { width: contentW - 28 });
-    doc.text(`Koordinat: ${val(node.latitude)}, ${val(node.longitude)}`, contentX + 14, infoY + 58, { width: contentW - 28 });
-    doc.text(`Catatan: ${val(node.notes)}`, contentX + 14, infoY + 80, { width: contentW - 28, height: 38 });
+      .text(`Alamat: ${val(node.address)}`, contentX + 14, infoY + 36, { width: detailTextW });
+    doc.text(`Koordinat: ${val(node.latitude)}, ${val(node.longitude)}`, contentX + 14, infoY + 58, { width: detailTextW });
+    doc.text(`Catatan: ${val(node.notes)}`, contentX + 14, infoY + 80, { width: detailTextW, height: 38 });
 
     if (mapsUrl) {
+      const qrSize = 78;
+      const qrX = contentX + contentW - qrBox;
+      const qrY = infoY + 32;
+      const qr = await QRCode.toBuffer(mapsUrl, { type: 'png', margin: 1, width: qrSize });
+      doc.roundedRect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 36, 8).fillAndStroke(colors.soft, colors.line);
+      doc.image(qr, qrX, qrY, { width: qrSize, height: qrSize });
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(colors.blueDark)
+        .text('Scan Maps', qrX - 8, qrY + qrSize + 7, { width: qrSize + 16, align: 'center' });
       doc.font('Helvetica').fontSize(8).fillColor(colors.faint)
-        .text(mapsUrl, contentX + 14, infoY + 124, { width: contentW - 28 });
+        .text(mapsUrl, contentX + 14, infoY + 124, { width: detailTextW });
     }
 
     doc.y = infoY + 170;

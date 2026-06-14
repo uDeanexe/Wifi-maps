@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Link;
 use App\Models\Node;
 use App\Services\PdfReportService;
+use Illuminate\Database\Eloquent\Builder;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
@@ -143,7 +144,7 @@ class ReportController extends Controller
 
     private function nodeRows(): array
     {
-        return Node::with('type')
+        return $this->nodeQuery()
             ->latest()
             ->get()
             ->map(fn (Node $node) => $this->nodeRow($node))
@@ -170,7 +171,15 @@ class ReportController extends Controller
 
     private function linkRows(): array
     {
+        $nodeIds = null;
+        if ($this->hasNodeFilters()) {
+            $nodeIds = $this->nodeQuery()->pluck('id');
+        }
+
         return Link::with(['source', 'target'])
+            ->when($nodeIds !== null, fn ($query) => $query->where(function ($query) use ($nodeIds): void {
+                $query->whereIn('source_node_id', $nodeIds)->orWhereIn('target_node_id', $nodeIds);
+            }))
             ->latest()
             ->get()
             ->map(fn (Link $link) => $this->linkRow($link))
@@ -191,5 +200,48 @@ class ReportController extends Controller
             'odc_name' => $link->odc_name,
             'notes' => $link->notes,
         ];
+    }
+
+    private function nodeQuery(): Builder
+    {
+        $filters = $this->nodeFilters();
+
+        return Node::with('type')
+            ->when($filters['q'], function (Builder $query, string $search): void {
+                $query->where(function (Builder $query) use ($search): void {
+                    $query
+                        ->where('code', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhereHas('type', fn (Builder $query) => $query
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('label', 'like', "%{$search}%"));
+                });
+            })
+            ->when($filters['type'], fn (Builder $query, $type) => $query->where('node_type_id', $type))
+            ->when($filters['photo'] === 'with', fn (Builder $query) => $query->whereNotNull('photo_path')->where('photo_path', '<>', ''))
+            ->when($filters['photo'] === 'without', fn (Builder $query) => $query->where(function (Builder $query): void {
+                $query->whereNull('photo_path')->orWhere('photo_path', '');
+            }))
+            ->when($filters['coords'] === 'with', fn (Builder $query) => $query->whereNotNull('latitude')->whereNotNull('longitude'))
+            ->when($filters['coords'] === 'without', fn (Builder $query) => $query->where(function (Builder $query): void {
+                $query->whereNull('latitude')->orWhereNull('longitude');
+            }));
+    }
+
+    private function nodeFilters(): array
+    {
+        return [
+            'q' => trim((string) request('q')),
+            'type' => request('type'),
+            'photo' => request('photo'),
+            'coords' => request('coords'),
+        ];
+    }
+
+    private function hasNodeFilters(): bool
+    {
+        return collect($this->nodeFilters())->contains(fn ($value) => $value !== null && $value !== '');
     }
 }

@@ -5,13 +5,50 @@
             <p class="mt-1 text-sm text-slate-500">Kelola ODC, PON, ODP, tiang, server, dan customer.</p>
         </div>
         <div class="flex flex-wrap gap-3">
-            <input class="form-control w-72" data-table-search="#nodes-table" placeholder="Cari node...">
-            <a class="btn" href="{{ route('reports.nodes.csv') }}">Export CSV</a>
-            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">PDF Visual A4</a>
+            <a class="btn" href="{{ route('reports.nodes.csv', request()->query()) }}">Export CSV</a>
+            <a class="btn" href="{{ route('reports.nodes.pdf', request()->query()) }}">PDF Node</a>
+            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf', request()->query()) }}">PDF Visual A4</a>
+            <a class="btn" href="{{ route('reports.topology.pdf', request()->query()) }}">PDF Topology</a>
             <button type="button" class="btn" data-modal-open="#nodes-import-modal">Import CSV</button>
             <button type="button" class="btn-primary" data-modal-open="#node-create-modal">Tambah Node</button>
         </div>
     </div>
+
+    <form method="get" action="{{ route('nodes.index') }}" class="panel mb-5 grid gap-4 p-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto] lg:items-end">
+        <label class="grid gap-2">
+            <span class="form-label">Cari</span>
+            <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat, catatan...">
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Tipe Node</span>
+            <select name="type" class="form-control">
+                <option value="">Semua tipe</option>
+                @foreach ($nodeTypes as $type)
+                    <option value="{{ $type->id }}" @selected((string) ($filters['type'] ?? '') === (string) $type->id)>{{ $type->label }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Foto</span>
+            <select name="photo" class="form-control">
+                <option value="">Semua</option>
+                <option value="with" @selected(($filters['photo'] ?? '') === 'with')>Ada foto</option>
+                <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
+            </select>
+        </label>
+        <label class="grid gap-2">
+            <span class="form-label">Koordinat</span>
+            <select name="coords" class="form-control">
+                <option value="">Semua</option>
+                <option value="with" @selected(($filters['coords'] ?? '') === 'with')>Ada koordinat</option>
+                <option value="without" @selected(($filters['coords'] ?? '') === 'without')>Belum ada koordinat</option>
+            </select>
+        </label>
+        <div class="flex flex-wrap gap-2">
+            <button class="btn-primary">Terapkan</button>
+            <a class="btn" href="{{ route('nodes.index') }}">Reset</a>
+        </div>
+    </form>
 
     <dialog id="nodes-import-modal" class="modal-shell">
         <form method="post" action="{{ route('nodes.import.csv') }}" enctype="multipart/form-data">

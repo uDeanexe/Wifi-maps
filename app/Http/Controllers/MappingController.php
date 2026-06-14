@@ -145,10 +145,44 @@ class MappingController extends Controller
 
     public function nodes(): View
     {
+        $filters = [
+            'q' => trim((string) request('q')),
+            'type' => request('type'),
+            'photo' => request('photo'),
+            'coords' => request('coords'),
+        ];
+
         return view('mapping.nodes', [
             'nodeTypes' => NodeType::orderBy('id')->get(),
-            'nodes' => Node::with('type')->latest()->get(),
+            'nodes' => $this->filteredNodeQuery($filters)->latest()->get(),
+            'filters' => $filters,
         ]);
+    }
+
+    private function filteredNodeQuery(array $filters)
+    {
+        return Node::with('type')
+            ->when($filters['q'] ?? null, function ($query, string $search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query
+                        ->where('code', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhereHas('type', fn ($query) => $query
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('label', 'like', "%{$search}%"));
+                });
+            })
+            ->when($filters['type'] ?? null, fn ($query, $type) => $query->where('node_type_id', $type))
+            ->when(($filters['photo'] ?? null) === 'with', fn ($query) => $query->whereNotNull('photo_path')->where('photo_path', '<>', ''))
+            ->when(($filters['photo'] ?? null) === 'without', fn ($query) => $query->where(function ($query): void {
+                $query->whereNull('photo_path')->orWhere('photo_path', '');
+            }))
+            ->when(($filters['coords'] ?? null) === 'with', fn ($query) => $query->whereNotNull('latitude')->whereNotNull('longitude'))
+            ->when(($filters['coords'] ?? null) === 'without', fn ($query) => $query->where(function ($query): void {
+                $query->whereNull('latitude')->orWhereNull('longitude');
+            }));
     }
 
     public function storeNode(Request $request): RedirectResponse

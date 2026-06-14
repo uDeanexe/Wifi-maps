@@ -8,7 +8,7 @@ if (!inputPath || !outputPath) {
   process.exit(1);
 }
 
-const payload = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+const payload = JSON.parse(fs.readFileSync(inputPath, 'utf8').replace(/^\uFEFF/, ''));
 
 const doc = new PDFDocument({ size: 'A4', margin: 36, bufferPages: true, autoFirstPage: false });
 const stream = fs.createWriteStream(outputPath);
@@ -17,10 +17,15 @@ doc.pipe(stream);
 const page = { width: 595.28, height: 841.89, margin: 36 };
 const colors = {
   ink: '#0f172a',
+  navy: '#0b1220',
   muted: '#64748b',
+  faint: '#94a3b8',
   line: '#dbe3ef',
+  lineDark: '#cbd5e1',
   soft: '#f8fafc',
+  softBlue: '#eef6ff',
   blue: '#0284c7',
+  blueDark: '#075985',
   green: '#059669',
   red: '#e11d48',
   amber: '#d97706',
@@ -38,6 +43,15 @@ function fit(value, length = 52) {
 
 function labelFromKey(key) {
   return key.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function reportTypeLabel(type) {
+  return {
+    topology: 'Topologi jaringan',
+    nodes: 'Inventaris node',
+    links: 'Inventaris link',
+    'link-stickers': 'Sticker QR link',
+  }[type] || val(type, 'Report');
 }
 
 function statusColor(status) {
@@ -62,44 +76,53 @@ function ensureFirstPage() {
 function drawHeader() {
   ensureFirstPage();
   doc.save();
-  doc.rect(0, 0, page.width, 92).fill(colors.ink);
-  doc.rect(0, 88, page.width, 4).fill(colors.blue);
+  doc.rect(0, 0, page.width, 98).fill(colors.navy);
+  doc.rect(0, 94, page.width, 4).fill(colors.blue);
+  doc.roundedRect(page.margin, 18, 116, 22, 5).fill('#ffffff');
+  doc.fillColor(colors.blueDark).font('Helvetica-Bold').fontSize(8)
+    .text('WIFI MAPS', page.margin, 25, { width: 116, align: 'center' });
   doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(18)
-    .text(payload.title || 'Report', page.margin, 24, { width: page.width - 72 });
+    .text(payload.title || 'Report', page.margin, 48, { width: page.width - 72 });
   doc.font('Helvetica').fontSize(9).fillColor('#dbeafe')
-    .text('Sistem Mapping Jaringan', page.margin, 50);
+    .text('Dokumen operasional mapping jaringan', page.margin, 72);
   doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff')
-    .text(val(payload.generated_at), page.width - 190, 50, { width: 154, align: 'right' });
+    .text(val(payload.generated_at), page.width - 190, 26, { width: 154, align: 'right' });
+  doc.font('Helvetica').fontSize(8).fillColor('#bfdbfe')
+    .text(reportTypeLabel(payload.type), page.width - 190, 42, { width: 154, align: 'right' });
   doc.restore();
-  doc.y = 118;
+  doc.y = 122;
 }
 
 function section(title) {
   ensureFirstPage();
-  ensureSpace(44);
-  doc.moveDown(0.4);
-  doc.font('Helvetica-Bold').fontSize(12).fillColor(colors.ink).text(title);
-  doc.moveTo(page.margin, doc.y + 5).lineTo(page.width - page.margin, doc.y + 5).strokeColor(colors.line).stroke();
-  doc.moveDown(0.8);
+  ensureSpace(50);
+  doc.moveDown(0.35);
+  const y = doc.y;
+  doc.roundedRect(page.margin, y + 1, 5, 15, 2).fill(colors.blue);
+  doc.font('Helvetica-Bold').fontSize(12).fillColor(colors.ink)
+    .text(title, page.margin + 12, y, { width: page.width - page.margin * 2 - 12 });
+  doc.moveTo(page.margin, y + 24).lineTo(page.width - page.margin, y + 24).strokeColor(colors.line).stroke();
+  doc.y = y + 34;
 }
 
 function summaryCards(summary) {
   section('Ringkasan');
   const entries = Object.entries(summary);
   const gap = 10;
-  const cols = Math.min(entries.length || 1, 4);
+  const cols = Math.min(entries.length || 1, 3);
   const cardWidth = (page.width - page.margin * 2 - gap * (cols - 1)) / cols;
   const startY = doc.y;
 
   entries.forEach(([key, value], index) => {
     const x = page.margin + (index % cols) * (cardWidth + gap);
-    const y = startY + Math.floor(index / cols) * 66;
-    doc.roundedRect(x, y, cardWidth, 52, 7).fillAndStroke(colors.soft, colors.line);
-    doc.font('Helvetica').fontSize(8).fillColor(colors.muted).text(labelFromKey(key), x + 11, y + 11, { width: cardWidth - 22 });
-    doc.font('Helvetica-Bold').fontSize(16).fillColor(colors.ink).text(val(value), x + 11, y + 27, { width: cardWidth - 22 });
+    const y = startY + Math.floor(index / cols) * 72;
+    doc.roundedRect(x, y, cardWidth, 58, 7).fillAndStroke('#ffffff', colors.line);
+    doc.rect(x, y, 4, 58).fill(colors.blue);
+    doc.font('Helvetica').fontSize(8).fillColor(colors.muted).text(labelFromKey(key), x + 14, y + 12, { width: cardWidth - 28 });
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(colors.ink).text(val(value), x + 14, y + 29, { width: cardWidth - 28 });
   });
 
-  doc.y = startY + Math.ceil(entries.length / cols) * 66;
+  doc.y = startY + Math.ceil(entries.length / cols) * 72;
 }
 
 function table(title, columns, rows) {
@@ -107,17 +130,17 @@ function table(title, columns, rows) {
   section(title);
 
   const totalWidth = page.width - page.margin * 2;
-  const headerHeight = 25;
-  const rowHeight = 31;
+  const headerHeight = 26;
+  const rowHeight = 34;
 
   function drawTableHeader() {
     ensureSpace(headerHeight + rowHeight);
     const y = doc.y;
-    doc.roundedRect(page.margin, y, totalWidth, headerHeight, 5).fill(colors.ink);
+    doc.roundedRect(page.margin, y, totalWidth, headerHeight, 5).fill(colors.navy);
     let x = page.margin;
     columns.forEach((column) => {
       doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#ffffff')
-        .text(column.label, x + 7, y + 8, { width: column.width - 14, height: 10 });
+        .text(column.label, x + 8, y + 8, { width: column.width - 16, height: 10 });
       x += column.width;
     });
     doc.y = y + headerHeight;
@@ -139,7 +162,7 @@ function table(title, columns, rows) {
       const raw = typeof column.value === 'function' ? column.value(row, index) : row[column.value];
       const color = column.status ? statusColor(raw) : colors.ink;
       doc.font(column.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8).fillColor(color)
-        .text(fit(raw, column.limit || 38), x + 7, y + 8, { width: column.width - 14, height: 18 });
+        .text(fit(raw, column.limit || 38), x + 8, y + 9, { width: column.width - 16, height: 18 });
       x += column.width;
     });
 
@@ -348,6 +371,7 @@ async function nodeQrSection(nodes) {
   const withCoords = (nodes || []).filter((n) => mapsUrlForNode(n));
   if (!withCoords.length) return;
 
+  if (doc.y > 610) doc.addPage();
   section('QR Lokasi Node (Google Maps)');
   doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
     .text('Scan QR untuk buka lokasi di Google Maps. QR hanya dibuat untuk node yang punya latitude & longitude.', page.margin, doc.y - 2);
@@ -356,9 +380,9 @@ async function nodeQrSection(nodes) {
   const gap = 12;
   const cols = 2;
   const cardW = (page.width - page.margin * 2 - gap * (cols - 1)) / cols;
-  const qrSize = 86;
+  const qrSize = 82;
   const cardPad = 10;
-  const cardH = qrSize + cardPad * 2;
+  const cardH = qrSize + cardPad * 2 + 4;
 
   for (let rowStart = 0; rowStart < withCoords.length; rowStart += cols) {
     ensureSpace(cardH + gap);
@@ -373,12 +397,13 @@ async function nodeQrSection(nodes) {
       const x = page.margin + col * (cardW + gap);
       const y = rowY;
 
-      doc.roundedRect(x, y, cardW, cardH, 8).fillAndStroke('#ffffff', colors.line);
+      doc.roundedRect(x, y, cardW, cardH, 8).fillAndStroke('#ffffff', colors.lineDark);
+      doc.rect(x, y, 4, cardH).fill(colors.blue);
 
       const qr = await QRCode.toBuffer(url, { type: 'png', margin: 1, width: qrSize });
-      doc.image(qr, x + cardPad, y + cardPad, { width: qrSize, height: qrSize });
+      doc.image(qr, x + cardPad + 2, y + cardPad, { width: qrSize, height: qrSize });
 
-      const textX = x + cardPad + qrSize + 10;
+      const textX = x + cardPad + qrSize + 14;
       const textW = cardW - (textX - x) - cardPad;
       const line1Y = y + cardPad;
       const line2Y = line1Y + 14;
@@ -399,8 +424,8 @@ async function nodeQrSection(nodes) {
           .text(`Alamat: ${fit(node.address, 56)}`, textX, line4Y, { width: textW });
       }
 
-      doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
-        .text(fit(url, 64), textX, y + cardH - 18, { width: textW });
+      doc.font('Helvetica').fontSize(7.2).fillColor(colors.faint)
+        .text(fit(url, 58), textX, y + cardH - 18, { width: textW });
     }
 
     doc.y = rowY + cardH + gap;
@@ -416,8 +441,16 @@ if (shouldRenderLinkStickers && stickerPosition === 'first') {
 }
 
 drawHeader();
-doc.font('Helvetica').fontSize(9).fillColor(colors.muted)
-  .text(`Jenis laporan: ${val(payload.type)}`, page.margin, 100);
+doc.roundedRect(page.margin, 106, page.width - page.margin * 2, 34, 7).fillAndStroke(colors.softBlue, '#bfdbfe');
+doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
+  .text('Jenis laporan', page.margin + 12, 114, { width: 100 });
+doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.blueDark)
+  .text(reportTypeLabel(payload.type), page.margin + 12, 126, { width: 210 });
+doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
+  .text('Dibuat pada', page.width - 190, 114, { width: 142, align: 'right' });
+doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.ink)
+  .text(val(payload.generated_at), page.width - 190, 126, { width: 142, align: 'right' });
+doc.y = 158;
 
 if (payload.summary) summaryCards(payload.summary);
 
@@ -430,12 +463,12 @@ table('Daftar Node', [
 ], payload.nodes);
 
 table('Daftar Link', [
-  { label: 'Dari', value: 'source_code', width: 80, bold: true },
-  { label: 'Ke', value: 'target_code', width: 80, bold: true },
-  { label: 'Kabel', value: 'cable_type', width: 92 },
-  { label: 'Core', value: (row) => [row.core_count, row.core_number].filter(Boolean).join(' / '), width: 92 },
-  { label: 'PON / ODC', value: (row) => [row.pon_name, row.odc_name].filter(Boolean).join(' / '), width: 109 },
-  { label: 'Catatan', value: 'notes', width: 70 },
+  { label: 'Dari', value: 'source_code', width: 86, bold: true, limit: 22 },
+  { label: 'Ke', value: 'target_code', width: 86, bold: true, limit: 22 },
+  { label: 'Kabel', value: 'cable_type', width: 80, limit: 18 },
+  { label: 'Core', value: (row) => [row.core_count, row.core_number].filter(Boolean).join(' / '), width: 74, limit: 18 },
+  { label: 'PON / ODC', value: (row) => [row.pon_name, row.odc_name].filter(Boolean).join(' / '), width: 108, limit: 26 },
+  { label: 'Catatan', value: 'notes', width: 89, limit: 24 },
 ], payload.links);
 
 if ((payload.type === 'topology' || payload.type === 'nodes') && payload.nodes?.length) {
@@ -450,6 +483,7 @@ if (shouldRenderLinkStickers && stickerPosition === 'last') {
 const range = doc.bufferedPageRange();
 for (let i = range.start; i < range.start + range.count; i += 1) {
   doc.switchToPage(i);
+  doc.moveTo(page.margin, page.height - page.margin - 22).lineTo(page.width - page.margin, page.height - page.margin - 22).strokeColor(colors.line).stroke();
   doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
     .text('Dokumen ini di-generate otomatis oleh Wifi Maps.', page.margin, page.height - page.margin - 14, { width: 300 });
   doc.text(`Halaman ${i + 1} / ${range.count}`, page.width - 126, page.height - page.margin - 14, { width: 90, align: 'right' });

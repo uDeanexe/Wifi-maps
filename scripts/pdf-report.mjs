@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 
@@ -209,6 +210,113 @@ function mapsUrlForNode(node) {
   const lng = Number(node?.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}`;
+}
+
+function resolveImagePath(...candidates) {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const clean = val(candidate, '').replace(/^file:\/\//, '');
+    const possiblePaths = [
+      clean,
+      path.resolve(clean),
+      path.resolve(process.cwd(), clean.replace(/^[/\\]/, '')),
+      path.resolve(process.cwd(), 'public', clean.replace(/^[/\\]/, '')),
+    ];
+
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath) && fs.statSync(possiblePath).isFile()) {
+        return possiblePath;
+      }
+    }
+  }
+
+  return null;
+}
+
+function drawImagePlaceholder(text, x, y, width, height) {
+  doc.save();
+  doc.roundedRect(x, y, width, height, 6).fillAndStroke(colors.soft, colors.line);
+  doc.font('Helvetica').fontSize(8).fillColor(colors.muted)
+    .text(text, x + 12, y + height / 2 - 5, { width: width - 24, align: 'center' });
+  doc.restore();
+}
+
+function drawImageSlot(label, imagePath, x, y, width, height, fallbackText) {
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(colors.muted)
+    .text(label, x, y - 13, { width });
+
+  if (imagePath) {
+    doc.roundedRect(x, y, width, height, 6).strokeColor(colors.line).stroke();
+    doc.save();
+    doc.roundedRect(x, y, width, height, 6).clip();
+    doc.image(imagePath, x, y, { width, height, fit: [width, height], align: 'center', valign: 'center' });
+    doc.restore();
+    return;
+  }
+
+  drawImagePlaceholder(fallbackText, x, y, width, height);
+}
+
+async function nodeVisualCards(nodes) {
+  if (!nodes?.length) return;
+
+  section('Dokumentasi Lokasi');
+
+  for (const node of nodes) {
+    ensureSpace(246);
+
+    const startY = doc.y;
+    const cardH = 216;
+    const cardW = page.width - page.margin * 2;
+    const pad = 12;
+    const gap = 12;
+    const imageW = (cardW - pad * 2 - gap) / 2;
+    const imageH = 124;
+    const imageY = startY + 54;
+    const photoPath = resolveImagePath(node.photo_file_path, node.photo_path);
+    const mapPath = resolveImagePath(node.map_image_file_path, node.map_image_path);
+    const mapsUrl = mapsUrlForNode(node);
+
+    doc.roundedRect(page.margin, startY, cardW, cardH, 8).fillAndStroke('#ffffff', colors.lineDark);
+    doc.rect(page.margin, startY, 5, cardH).fill(colors.blue);
+
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(colors.ink)
+      .text(`${val(node.code)} - ${val(node.name)}`, page.margin + pad + 4, startY + 12, { width: cardW - pad * 2 - 8 });
+    doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
+      .text(val(node.type_label || node.type, 'Node'), page.margin + pad + 4, startY + 30, { width: cardW - pad * 2 - 8 });
+
+    drawImageSlot(
+      'Foto Tiang / Lokasi',
+      photoPath,
+      page.margin + pad,
+      imageY,
+      imageW,
+      imageH,
+      'Foto tiang tidak tersedia',
+    );
+
+    drawImageSlot(
+      'Gambar Maps',
+      mapPath,
+      page.margin + pad + imageW + gap,
+      imageY,
+      imageW,
+      imageH,
+      'Gambar map tidak tersedia',
+    );
+
+    doc.font('Helvetica').fontSize(9).fillColor(colors.ink)
+      .text(`Alamat: ${fit(node.address, 96)}`, page.margin + pad, startY + 188, { width: cardW - pad * 2 });
+    doc.font('Helvetica').fontSize(8.5).fillColor(colors.muted)
+      .text(`Koordinat: ${val(node.latitude)}, ${val(node.longitude)}`, page.margin + pad, startY + 202, { width: 220 });
+
+    if (mapsUrl) {
+      doc.font('Helvetica').fontSize(7.5).fillColor(colors.faint)
+        .text(fit(mapsUrl, 76), page.margin + 246, startY + 202, { width: cardW - 258, align: 'right' });
+    }
+
+    doc.y = startY + cardH + 12;
+  }
 }
 
 function linkBarcodeValue(link) {
@@ -472,6 +580,7 @@ table('Daftar Link', [
 ], payload.links);
 
 if ((payload.type === 'topology' || payload.type === 'nodes') && payload.nodes?.length) {
+  await nodeVisualCards(payload.nodes);
   await nodeQrSection(payload.nodes);
 }
 

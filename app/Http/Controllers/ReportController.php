@@ -146,6 +146,7 @@ class ReportController extends Controller
             'longitude' => $node->longitude,
             'address' => $node->address,
             'photo_path' => $node->photo_path,
+            'photo_file_path' => $node->photo_path ? public_path(ltrim($node->photo_path, '/')) : null,
             'notes' => $node->notes,
         ];
     }

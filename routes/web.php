@@ -11,7 +11,7 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 });
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', 'active'])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/', [MappingController::class, 'dashboard'])->name('dashboard');
@@ -31,6 +31,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/users', [MappingController::class, 'users'])->name('users.index');
     Route::post('/users', [MappingController::class, 'storeUser'])->name('users.store');
+    Route::put('/users/{user}', [MappingController::class, 'updateUser'])->name('users.update');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/topology.pdf', [ReportController::class, 'topologyPdf'])->name('reports.topology.pdf');

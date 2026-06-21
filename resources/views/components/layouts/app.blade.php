@@ -109,6 +109,16 @@
                 @if ($errors->any())
                     <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $errors->first() }}</div>
                 @endif
+                @if (session('import_errors'))
+                    <details class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        <summary class="cursor-pointer font-bold">{{ count(session('import_errors')) }} baris import dilewati — lihat detail</summary>
+                        <ul class="mt-3 list-disc space-y-1 pl-5">
+                            @foreach (session('import_errors') as $importError)
+                                <li>{{ $importError }}</li>
+                            @endforeach
+                        </ul>
+                    </details>
+                @endif
                 {{ $slot }}
             </div>
         </main>

@@ -132,4 +132,47 @@ class MappingBasicsTest extends TestCase
             'core_count' => 0,
         ])->assertSessionHasErrors('core_count');
     }
+
+    public function test_admin_can_update_regular_user_but_cannot_promote_to_superadmin(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $user = User::factory()->create(['role' => 'teknisi', 'is_active' => true]);
+
+        $this->actingAs($admin)->put(route('users.update', $user), [
+            'name' => 'Teknisi Baru',
+            'email' => $user->email,
+            'role' => 'supervisor_noc',
+            'is_active' => '1',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'name' => 'Teknisi Baru', 'role' => 'supervisor_noc']);
+
+        $this->actingAs($admin)->put(route('users.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => 'superadmin',
+            'is_active' => '1',
+        ])->assertForbidden();
+    }
+
+    public function test_user_cannot_deactivate_own_account(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+
+        $this->actingAs($admin)->put(route('users.update', $admin), [
+            'name' => $admin->name,
+            'email' => $admin->email,
+            'role' => 'admin',
+        ])->assertSessionHasErrors('is_active');
+
+        $this->assertTrue($admin->fresh()->is_active);
+    }
+
+    public function test_inactive_authenticated_user_is_logged_out(): void
+    {
+        $user = User::factory()->create(['role' => 'teknisi', 'is_active' => false]);
+
+        $this->actingAs($user)->get(route('dashboard'))->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
 }

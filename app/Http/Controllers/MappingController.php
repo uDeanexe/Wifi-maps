@@ -423,6 +423,50 @@ class MappingController extends Controller
         return back()->with('status', 'User berhasil dibuat.');
     }
 
+    public function updateUser(Request $request, User $user): RedirectResponse
+    {
+        $actor = auth()->user();
+        abort_unless(in_array($actor->role, ['superadmin', 'admin'], true), 403);
+        abort_if($actor->role !== 'superadmin' && $user->role === 'superadmin', 403);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:255'],
+            'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user)],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'password' => ['nullable', 'string', 'min:6'],
+            'role' => ['required', Rule::in(['superadmin', 'admin', 'supervisor_noc', 'teknisi'])],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        if ($actor->role !== 'superadmin' && $data['role'] === 'superadmin') {
+            abort(403);
+        }
+
+        $isActive = $request->boolean('is_active');
+        if ($actor->is($user) && ! $isActive) {
+            return back()->withErrors(['is_active' => 'Akun yang sedang digunakan tidak dapat dinonaktifkan.']);
+        }
+
+        if ($user->role === 'superadmin' && ($data['role'] !== 'superadmin' || ! $isActive)
+            && User::where('role', 'superadmin')->where('is_active', true)->count() <= 1) {
+            return back()->withErrors(['role' => 'Minimal satu superadmin aktif harus tetap tersedia.']);
+        }
+
+        $user->fill([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'phone' => $data['phone'] ?? null,
+            'role' => $data['role'],
+            'is_active' => $isActive,
+        ]);
+        if (! empty($data['password'])) {
+            $user->password = Hash::make($data['password']);
+        }
+        $user->save();
+
+        return back()->with('status', 'User berhasil diperbarui.');
+    }
+
     private function nodeRules(?Node $node = null): array
     {
         return [

@@ -13,12 +13,8 @@
             <p class="mt-1 text-sm text-slate-500">Ringkasan operasional mapping jaringan.</p>
         </div>
         <div class="flex flex-wrap gap-3">
-            <a class="btn" href="{{ route('reports.topology.pdf') }}">Report Topology</a>
-            <a class="btn" href="{{ route('reports.nodes.pdf') }}">Report Node</a>
-            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">PDF Visual A4</a>
-            <a class="btn" href="{{ route('reports.links.pdf') }}">Report Link</a>
-            <a class="btn" href="{{ route('reports.nodes.csv') }}">Export Node CSV</a>
-            <a class="btn" href="{{ route('reports.links.csv') }}">Export Link CSV</a>
+            <a class="btn" href="{{ route('map') }}">Buka Peta</a>
+            <a class="btn-primary" href="{{ route('reports.index') }}">Pusat Report</a>
         </div>
     </div>
 
@@ -55,9 +51,7 @@
                 <a class="btn" href="{{ route('topology') }}">Topology (drag posisi)</a>
                 <a class="btn" href="{{ route('nodes.index') }}">Data Node (tambah/edit)</a>
                 <a class="btn" href="{{ route('links.index') }}">Data Link (tambah/edit)</a>
-                <a class="btn" href="{{ route('reports.nodes.pdf') }}">Download PDF Node</a>
-                <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf') }}">Download PDF Visual A4</a>
-                <a class="btn" href="{{ route('reports.topology.pdf') }}">Download PDF Topology</a>
+                <a class="btn" href="{{ route('map') }}">Periksa Lokasi Node</a>
             </div>
             <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
                 Tips: gunakan <strong>Map View</strong> untuk cek foto/koordinat, dan <strong>Topology</strong> untuk rapikan layout jaringan.
@@ -111,6 +105,10 @@
                 .map((node) => ({ node, point: normalizePoint(node.latitude, node.longitude) }))
                 .filter((row) => !!row.point);
 
+            const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+            }[char]));
+
             const center = mappedNodes[0]?.point || [-6.2615, 107.1528];
             const map = L.map(el, { zoomControl: true, scrollWheelZoom: true, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM }).setView(center, mappedNodes.length ? 15 : 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -133,9 +131,9 @@
                 bounds.push(point);
                 const popup = `
                     <div style="min-width:200px">
-                        <div style="font-weight:800;color:#0f172a">${String(node.code || '-')}</div>
-                        <div style="margin-top:4px;font-size:12px;color:#334155">${String(node.name || '-')}</div>
-                        <div style="margin-top:4px;font-size:12px;color:#64748b">${String(node.type_label || node.type || '-')}</div>
+                        <div style="font-weight:800;color:#0f172a">${escapeHtml(node.code || '-')}</div>
+                        <div style="margin-top:4px;font-size:12px;color:#334155">${escapeHtml(node.name || '-')}</div>
+                        <div style="margin-top:4px;font-size:12px;color:#64748b">${escapeHtml(node.type_label || node.type || '-')}</div>
                         <div style="margin-top:6px;font-size:12px;color:#334155">${point[0]}, ${point[1]}</div>
                     </div>
                 `;

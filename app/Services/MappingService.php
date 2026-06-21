@@ -77,6 +77,15 @@ class MappingService
 
     private function normalizeLatLng(mixed $latitude, mixed $longitude): array
     {
+        $hasLatitude = $latitude !== null && $latitude !== '';
+        $hasLongitude = $longitude !== null && $longitude !== '';
+        if ($hasLatitude xor $hasLongitude) {
+            throw ValidationException::withMessages([
+                'latitude' => 'Latitude dan longitude harus diisi berpasangan.',
+                'longitude' => 'Latitude dan longitude harus diisi berpasangan.',
+            ]);
+        }
+
         if (! is_numeric($latitude) || ! is_numeric($longitude)) {
             return [$latitude ?: null, $longitude ?: null];
         }
@@ -102,6 +111,10 @@ class MappingService
 
     private function validateLink(array $data, ?Link $existing = null): void
     {
+        if (isset($data['core_count']) && $data['core_count'] !== '' && (! is_numeric($data['core_count']) || (int) $data['core_count'] < 1)) {
+            throw ValidationException::withMessages(['core_count' => 'Jumlah core minimal 1.']);
+        }
+
         if ((int) $data['source_node_id'] === (int) $data['target_node_id']) {
             throw ValidationException::withMessages(['target_node_id' => 'Node tujuan tidak boleh sama dengan node sumber.']);
         }
@@ -125,4 +138,3 @@ class MappingService
         Storage::disk('public')->delete(str_replace('/storage/', '', $path));
     }
 }
-

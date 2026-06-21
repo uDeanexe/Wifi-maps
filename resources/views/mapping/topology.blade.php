@@ -256,7 +256,7 @@
             };
 
             const savePosition = async (node) => {
-                await fetch(node.dataset.positionUrl, {
+                const response = await fetch(node.dataset.positionUrl, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -268,6 +268,10 @@
                         topology_y: parseInt(node.style.top, 10) || 0,
                     }),
                 });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.message || 'Posisi gagal disimpan.');
+                }
             };
 
             const addLinkPath = (link) => {
@@ -364,7 +368,12 @@
                 dragging = null;
                 node.classList.remove('z-20');
                 if (moved) suppressClickUntil = Date.now() + 250;
-                await savePosition(node);
+                try {
+                    await savePosition(node);
+                    setStatus('Posisi node berhasil disimpan.');
+                } catch (error) {
+                    setStatus(error.message || 'Posisi node gagal disimpan. Muat ulang sebelum mencoba lagi.');
+                }
             };
 
             const stopPanning = (event) => {
@@ -444,7 +453,8 @@
                 });
 
                 if (!response.ok) {
-                    setStatus('Gagal membuat link.');
+                    const payload = await response.json().catch(() => ({}));
+                    setStatus(payload.message || Object.values(payload.errors || {}).flat()[0] || 'Gagal membuat link.');
                     return;
                 }
 

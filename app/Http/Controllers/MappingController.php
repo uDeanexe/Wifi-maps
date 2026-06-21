@@ -107,6 +107,10 @@ class MappingController extends Controller
                 continue;
             }
 
+            if ($route?->last_error && $route->updated_at?->isAfter(now()->subMinutes(5))) {
+                continue;
+            }
+
             $source = $link->source;
             $target = $link->target;
             if (! $source || ! $target || ! is_numeric($source->latitude) || ! is_numeric($source->longitude) || ! is_numeric($target->latitude) || ! is_numeric($target->longitude)) {
@@ -425,8 +429,8 @@ class MappingController extends Controller
             'node_type_id' => ['required', 'exists:node_types,id'],
             'code' => ['required', 'string', 'max:255', Rule::unique('nodes', 'code')->ignore($node)],
             'name' => ['nullable', 'string', 'max:255'],
-            'latitude' => ['nullable', 'numeric'],
-            'longitude' => ['nullable', 'numeric'],
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric'],
             'address' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
             'topology_x' => ['nullable', 'integer'],
@@ -441,7 +445,7 @@ class MappingController extends Controller
             'source_node_id' => ['required', 'exists:nodes,id'],
             'target_node_id' => ['required', 'exists:nodes,id'],
             'cable_type' => ['nullable', 'string', 'max:255'],
-            'core_count' => ['nullable', 'integer'],
+            'core_count' => ['nullable', 'integer', 'min:1'],
             'core_number' => ['nullable', 'string', 'max:255'],
             'pon_name' => ['nullable', 'string', 'max:255'],
             'odc_name' => ['nullable', 'string', 'max:255'],

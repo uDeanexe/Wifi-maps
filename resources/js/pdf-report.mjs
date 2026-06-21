@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
-  console.error('Penggunaan: node scripts/pdf-report.mjs <input.json> <output.pdf>');
+  console.error('Penggunaan: node resources/js/pdf-report.mjs <input.json> <output.pdf>');
   process.exit(1);
 }
 

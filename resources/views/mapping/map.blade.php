@@ -20,10 +20,7 @@
         ];
         $activeFilterSummary = collect($filterSummary)->reject(fn ($value) => in_array($value, ['Semua', 'Semua tipe', 'Semua tanggal'], true));
         $reportActions = [
-            ['label' => 'Report PDF (Full)', 'url' => route('reports.topology.pdf')],
-            ['label' => 'PDF Node', 'url' => route('reports.nodes.pdf')],
-            ['label' => 'PDF Visual A4', 'url' => route('reports.nodes.visual-a4.pdf')],
-            ['label' => 'PDF Link', 'url' => route('reports.links.pdf')],
+            ['label' => 'Unduh Report Lengkap', 'url' => route('reports.topology.pdf')],
         ];
     @endphp
 
@@ -42,16 +39,10 @@
             </div>
         </div>
         <div class="map-actions">
+            <a class="map-action-btn" href="{{ route('reports.index') }}">Pusat Report</a>
             @foreach ($reportActions as $action)
                 <button type="button" class="map-action-btn" data-report-confirm data-report-label="{{ $action['label'] }}" data-report-url="{{ $action['url'] }}">{{ $action['label'] }}</button>
             @endforeach
-            <button
-                type="button"
-                class="map-action-btn is-refresh"
-                onclick="window.location.reload()"
-            >
-                Segarkan
-            </button>
         </div>
     </div>
 

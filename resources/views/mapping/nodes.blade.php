@@ -1,17 +1,36 @@
 <x-layouts.app title="Data Node">
-    <div class="toolbar">
-        <div>
-            <h2 class="text-2xl font-bold text-slate-900">Data Node</h2>
-            <p class="mt-1 text-sm text-slate-500">Kelola ODC, PON, ODP, tiang, server, dan customer.</p>
-        </div>
-        <div class="flex flex-wrap gap-3">
-            <a class="btn" href="{{ route('reports.nodes.csv', request()->query()) }}">Export CSV</a>
-            <a class="btn" href="{{ route('reports.nodes.pdf', request()->query()) }}">PDF Node</a>
-            <a class="btn" href="{{ route('reports.nodes.visual-a4.pdf', request()->query()) }}">PDF Visual A4</a>
-            <a class="btn" href="{{ route('reports.topology.pdf', request()->query()) }}">PDF Topology</a>
-            <button type="button" class="btn" data-modal-open="#nodes-import-modal">Import CSV</button>
-            <button type="button" class="btn-primary" data-modal-open="#node-create-modal">Tambah Node</button>
-        </div>
+    <div class="space-y-5">
+        <section class="data-page-hero">
+            <div>
+                <div class="data-page-eyebrow">Inventaris jaringan</div>
+                <h2 class="data-page-title">Data Node</h2>
+                <p class="data-page-description">Kelola ODC, PON, ODP, tiang, server, dan customer dari satu ruang kerja.</p>
+            </div>
+            <div class="flex flex-wrap gap-2"><a class="btn-hero" href="{{ route('map') }}">Buka Map</a><button type="button" class="btn-primary gap-2" data-modal-open="#node-create-modal" data-primary-create><span class="text-lg leading-none">+</span> Tambah Node</button></div>
+        </section>
+
+        <section class="grid gap-3 sm:grid-cols-3">
+            <div class="data-stat"><span class="data-stat-icon bg-sky-50 text-sky-700">#</span><div><strong>{{ $nodes->count() }}</strong><span>Node ditampilkan</span></div></div>
+            <div class="data-stat"><span class="data-stat-icon bg-emerald-50 text-emerald-700">GPS</span><div><strong>{{ $nodes->filter(fn($node) => is_numeric($node->latitude) && is_numeric($node->longitude))->count() }}</strong><span>Koordinat lengkap</span></div></div>
+            <div class="data-stat"><span class="data-stat-icon bg-violet-50 text-violet-700">IMG</span><div><strong>{{ $nodes->whereNotNull('photo_path')->count() }}</strong><span>Memiliki foto</span></div></div>
+        </section>
+
+        <section class="panel p-4 sm:p-5">
+            <form method="get" class="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_180px_170px_auto]">
+                <label class="relative"><span class="sr-only">Cari node</span><input name="q" value="{{ $filters['q'] }}" class="form-control !pl-10" placeholder="Cari kode, nama, alamat..."><span class="pointer-events-none absolute left-3 top-2.5 text-slate-400">⌕</span></label>
+                <select name="type" class="form-control"><option value="">Semua tipe</option>@foreach($nodeTypes as $type)<option value="{{ $type->id }}" @selected((string)$filters['type'] === (string)$type->id)>{{ $type->label }}</option>@endforeach</select>
+                <select name="coords" class="form-control"><option value="">Semua koordinat</option><option value="with" @selected($filters['coords']==='with')>Ada koordinat</option><option value="without" @selected($filters['coords']==='without')>Tanpa koordinat</option></select>
+                <div class="flex gap-2"><button class="btn-primary flex-1">Terapkan</button>@if(collect($filters)->filter()->isNotEmpty())<a class="btn" href="{{ route('nodes.index') }}">Reset</a>@endif</div>
+            </form>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <p class="text-xs font-semibold text-slate-500">Gunakan report untuk unduhan; import untuk memperbarui data secara massal.</p>
+                <div class="flex flex-wrap gap-2">
+                    <a class="btn-compact" href="{{ route('reports.index') }}">Pusat Report</a>
+                    <a class="btn-compact" href="{{ route('reports.nodes.csv', request()->query()) }}" data-file-download="CSV node sedang disiapkan.">Unduh CSV</a>
+                    <button type="button" class="btn-compact" data-modal-open="#nodes-import-modal">Import CSV</button>
+                </div>
+            </div>
+        </section>
     </div>
     <dialog id="nodes-import-modal" class="modal-shell">
         <form method="post" action="{{ route('nodes.import.csv') }}" enctype="multipart/form-data">
@@ -115,46 +134,50 @@
         </div>
     </dialog>
 
-    <div class="panel overflow-hidden">
+    <div class="panel mt-5 overflow-hidden">
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h3 class="font-black text-slate-900">Daftar Node</h3><p id="nodes-search-summary" class="text-xs text-slate-500">{{ $nodes->count() }} hasil ditemukan</p></div></div>
         <div class="overflow-x-auto">
-            <table id="nodes-table" class="data-table">
+            <table id="nodes-table" class="data-table responsive-data-table" data-search-summary="#nodes-search-summary">
                 <thead>
                     <tr>
-                        <th>Kode</th>
-                        <th>Tipe</th>
-                        <th>Nama</th>
+                        <th><button type="button" class="table-sort" data-sort-table="#nodes-table" data-sort-column="0">Kode <span>↕</span></button></th>
+                        <th><button type="button" class="table-sort" data-sort-table="#nodes-table" data-sort-column="1">Tipe <span>↕</span></button></th>
+                        <th><button type="button" class="table-sort" data-sort-table="#nodes-table" data-sort-column="2">Nama <span>↕</span></button></th>
                         <th>Koordinat</th>
-                        <th>Alamat</th>
+                        <th><button type="button" class="table-sort" data-sort-table="#nodes-table" data-sort-column="4">Alamat <span>↕</span></button></th>
                         <th class="text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($nodes as $node)
                         <tr>
-                            <td class="font-bold text-slate-900">{{ $node->code }}</td>
-                            <td><span class="badge">{{ $node->type?->label ?? '-' }}</span></td>
-                            <td>{{ $node->name ?: '-' }}</td>
-                            <td class="font-mono text-xs">{{ $node->latitude ?: '-' }}, {{ $node->longitude ?: '-' }}</td>
-                            <td class="max-w-xs truncate">{{ $node->address ?: '-' }}</td>
-                            <td>
+                            <td data-label="Kode" class="font-bold text-slate-900">{{ $node->code }}</td>
+                            <td data-label="Tipe"><span class="badge">{{ $node->type?->label ?? '-' }}</span></td>
+                            <td data-label="Nama">{{ $node->name ?: '-' }}</td>
+                            <td data-label="Koordinat" class="font-mono text-xs">{{ $node->latitude ?: '-' }}, {{ $node->longitude ?: '-' }}</td>
+                            <td data-label="Alamat" class="max-w-xs truncate">{{ $node->address ?: '-' }}</td>
+                            <td data-label="Aksi">
                                 <div class="flex justify-end gap-2">
+                                    <button type="button" class="btn-compact" data-copy-text="{{ $node->code }}" data-copy-label="Kode node">Salin</button>
                                     @if (is_numeric($node->latitude) && is_numeric($node->longitude))
                                         <a class="btn" href="{{ route('map', ['focus_node' => $node->id]) }}">Map</a>
+                                        <button type="button" class="btn-compact" data-copy-text="{{ $node->latitude }}, {{ $node->longitude }}" data-copy-label="Koordinat">Koordinat</button>
                                     @endif
                                     <button type="button" class="btn" data-modal-open="#node-edit-{{ $node->id }}">Edit</button>
-                                    <form method="post" action="{{ route('nodes.destroy', $node) }}">
+                                    <form method="post" action="{{ route('nodes.destroy', $node) }}" data-confirm-form="Hapus node {{ $node->code }}? Data link yang terkait dapat ikut terdampak.">
                                         @csrf @method('delete')
-                                        <button class="btn-danger" onclick="return confirm('Hapus node {{ $node->code }}?')">Hapus</button>
+                                        <button class="btn-danger">Hapus</button>
                                     </form>
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr data-empty-row="1"><td colspan="6" class="text-center text-slate-500">Belum ada node.</td></tr>
+                        <tr data-empty-row="1"><td colspan="6"><div class="data-empty"><strong>Node belum ditemukan</strong><span>Ubah filter pencarian atau tambahkan node baru.</span><button type="button" class="btn-primary mt-3" data-modal-open="#node-create-modal">Tambah Node</button></div></td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+        <div class="table-pagination" data-table-pagination="#nodes-table"></div>
     </div>
 
     @foreach ($nodes as $node)

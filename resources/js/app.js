@@ -1,4 +1,5 @@
 import './bootstrap';
+import './mapping-data';
 
 const sidebar = document.querySelector('[data-sidebar]');
 const sidebarBackdrop = document.querySelector('[data-sidebar-backdrop]');
@@ -76,11 +77,42 @@ document.addEventListener('input', (event) => {
     const table = document.querySelector(input.dataset.tableSearch);
     if (!table) return;
 
-    const query = input.value.trim().toLowerCase();
-    table.querySelectorAll('tbody tr').forEach((row) => {
+    const query = input.value.trim().toLocaleLowerCase('id-ID');
+    let visible = 0;
+    const rows = [...table.querySelectorAll('tbody tr:not([data-empty-row]):not(.table-no-results)')];
+    rows.forEach((row) => {
         if (row.dataset.emptyRow === '1') return;
-        row.hidden = query !== '' && !row.textContent.toLowerCase().includes(query);
+        const matches = query === '' || row.textContent.toLocaleLowerCase('id-ID').includes(query);
+        row.classList.toggle('is-filtered-out', !matches);
+        if (matches) visible += 1;
     });
+
+    let empty = table.querySelector('.table-no-results');
+    if (!empty && rows.length) {
+        empty = document.createElement('tr');
+        empty.className = 'table-no-results';
+        empty.innerHTML = `<td colspan="99"><div class="data-empty"><strong>Data tidak ditemukan</strong><span>Coba gunakan kata kunci yang lebih singkat.</span></div></td>`;
+        table.tBodies[0]?.appendChild(empty);
+    }
+    if (empty) empty.hidden = visible !== 0 || query === '';
+
+    const summarySelector = input.dataset.searchSummary || table.dataset.searchSummary;
+    const summary = summarySelector ? document.querySelector(summarySelector) : null;
+    if (summary) summary.textContent = query ? `${visible} dari ${rows.length} data cocok` : `${rows.length} data ditampilkan`;
+});
+
+document.addEventListener('submit', (event) => {
+    if (event.defaultPrevented) return;
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.checkValidity()) return;
+    const submitter = event.submitter || form.querySelector('button[type="submit"], button:not([type])');
+    if (!(submitter instanceof HTMLButtonElement) || submitter.dataset.loading === '1') return;
+    submitter.dataset.loading = '1';
+    submitter.dataset.originalText = submitter.innerHTML;
+    submitter.classList.add('is-loading');
+    submitter.setAttribute('aria-busy', 'true');
+    submitter.disabled = true;
+    submitter.insertAdjacentHTML('afterbegin', '<span class="button-spinner" aria-hidden="true"></span>');
 });
 
 document.addEventListener('click', (event) => {

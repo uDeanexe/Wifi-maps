@@ -18,7 +18,7 @@ class PdfReportService
 
         file_put_contents($input, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        $process = new Process([$this->nodeBinary(), base_path('scripts/pdf-report.mjs'), $input, $output], base_path());
+        $process = new Process([$this->nodeBinary(), resource_path('js/pdf-report.mjs'), $input, $output], base_path());
         $process->setTimeout(60);
         $process->setEnv($this->processEnvironment());
         $process->run();

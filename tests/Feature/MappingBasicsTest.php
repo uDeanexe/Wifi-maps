@@ -112,5 +112,24 @@ class MappingBasicsTest extends TestCase
         $response->assertOk();
         $this->assertStringStartsWith('%PDF', $response->streamedContent());
     }
-}
 
+    public function test_node_coordinates_must_be_complete_and_core_count_positive(): void
+    {
+        $user = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $type = NodeType::create(['name' => 'odc', 'label' => 'ODC']);
+
+        $this->actingAs($user)->post(route('nodes.store'), [
+            'node_type_id' => $type->id,
+            'code' => 'ODC-PARTIAL',
+            'latitude' => -6.2,
+        ])->assertSessionHasErrors('longitude');
+
+        $source = Node::create(['node_type_id' => $type->id, 'code' => 'ODC-A']);
+        $target = Node::create(['node_type_id' => $type->id, 'code' => 'ODC-B']);
+        $this->actingAs($user)->post(route('links.store'), [
+            'source_node_id' => $source->id,
+            'target_node_id' => $target->id,
+            'core_count' => 0,
+        ])->assertSessionHasErrors('core_count');
+    }
+}

@@ -28,6 +28,7 @@
                     ['route' => 'topology', 'label' => 'Topology'],
                     ['route' => 'nodes.index', 'label' => 'Data Node'],
                     ['route' => 'links.index', 'label' => 'Data Link'],
+                    ['route' => 'reports.index', 'label' => 'Pusat Report'],
                 ];
                 if (in_array(auth()->user()->role, ['superadmin', 'admin'], true)) {
                     $items[] = ['route' => 'users.index', 'label' => 'Akun User'];
@@ -53,6 +54,9 @@
                                     @break
                                 @case('links.index')
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a3 3 0 0 1 0-4M14 10a3 3 0 0 1 0 4M12 12h2"/></svg>
+                                    @break
+                                @case('reports.index')
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
                                     @break
                                 @default
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-3-3.87M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg>

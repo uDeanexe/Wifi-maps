@@ -12,6 +12,15 @@ class ReportController extends Controller
 {
     public function __construct(private readonly PdfReportService $pdf) {}
 
+    public function index()
+    {
+        return view('reports.index', [
+            'nodeCount' => Node::count(),
+            'linkCount' => Link::count(),
+            'nodeTypes' => \App\Models\NodeType::query()->orderBy('label')->get(['id', 'label']),
+        ]);
+    }
+
     public function topologyPdf()
     {
         $nodes = $this->nodeRows();

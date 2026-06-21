@@ -168,4 +168,19 @@
     .dropzone .dropzone-clear {
         @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50;
     }
+
+    .report-card {
+        @apply transition duration-200 hover:-translate-y-1 hover:border-sky-200 hover:shadow-md;
+    }
+
+    .report-progress {
+        @apply fixed bottom-5 right-5 z-[1400] flex items-center gap-3 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-2xl;
+    }
+
+    .report-spinner {
+        @apply h-4 w-4 rounded-full border-2 border-white/30 border-t-white;
+        animation: report-spin .7s linear infinite;
+    }
 }
+
+@keyframes report-spin { to { transform: rotate(360deg); } }

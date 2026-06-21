@@ -5,11 +5,24 @@ import QRCode from 'qrcode';
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
-  console.error('Usage: node scripts/pdf-report.mjs input.json output.pdf');
+  console.error('Penggunaan: node scripts/pdf-report.mjs <input.json> <output.pdf>');
   process.exit(1);
 }
 
-const payload = JSON.parse(fs.readFileSync(inputPath, 'utf8').replace(/^\uFEFF/, ''));
+if (!fs.existsSync(inputPath)) {
+  console.error(`File input report tidak ditemukan: ${inputPath}`);
+  process.exit(1);
+}
+
+let payload;
+try {
+  payload = JSON.parse(fs.readFileSync(inputPath, 'utf8').replace(/^\uFEFF/, ''));
+} catch (error) {
+  console.error(`File input report tidak valid: ${error.message}`);
+  process.exit(1);
+}
+
+fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
 
 const doc = new PDFDocument({ size: 'A4', margin: 36, bufferPages: true, autoFirstPage: false });
 const stream = fs.createWriteStream(outputPath);
@@ -809,7 +822,7 @@ for (let i = range.start; i < range.start + range.count; i += 1) {
   doc.switchToPage(i);
   doc.moveTo(page.margin, page.height - page.margin - 22).lineTo(page.width - page.margin, page.height - page.margin - 22).strokeColor(colors.line).stroke();
   doc.font('Helvetica').fontSize(7.5).fillColor(colors.muted)
-    .text('Dokumen ini di buat oleh PT. Jasa Online Nusantara.', page.margin, page.height - page.margin - 14, { width: 300 });
+    .text('Dokumen ini dibuat oleh PT. Jasa Online Nusantara.', page.margin, page.height - page.margin - 14, { width: 300 });
   doc.text(`Halaman ${i + 1} / ${range.count}`, page.width - 126, page.height - page.margin - 14, { width: 90, align: 'right' });
 }
 

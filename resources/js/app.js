@@ -201,3 +201,37 @@ function initDropzones(root = document) {
 
 document.addEventListener('DOMContentLoaded', () => initDropzones());
 
+function initReportCenter() {
+    const form = document.querySelector('[data-report-filter]');
+    if (!form) return;
+
+    const reset = document.querySelector('[data-report-reset]');
+    const status = document.querySelector('[data-report-filter-status]');
+    const progress = document.querySelector('[data-report-progress]');
+
+    const sync = () => {
+        const params = new URLSearchParams(new FormData(form));
+        [...params.keys()].forEach((key) => { if (!params.get(key)) params.delete(key); });
+        const active = [...params.keys()].length;
+        reset?.classList.toggle('hidden', active === 0);
+        if (status) status.textContent = active ? `${active} filter aktif. Report hanya memuat data yang sesuai.` : 'Semua data akan disertakan.';
+
+        document.querySelectorAll('[data-report-download]').forEach((link) => {
+            const url = new URL(link.dataset.reportBaseUrl, window.location.origin);
+            if (link.dataset.reportUseFilter === '1') params.forEach((value, key) => url.searchParams.set(key, value));
+            link.href = url.toString();
+        });
+    };
+
+    form.addEventListener('input', sync);
+    form.addEventListener('change', sync);
+    reset?.addEventListener('click', () => { form.reset(); sync(); form.querySelector('input, select')?.focus(); });
+    document.querySelectorAll('[data-report-download]').forEach((link) => link.addEventListener('click', () => {
+        if (progress) progress.hidden = false;
+        link.setAttribute('aria-busy', 'true');
+        setTimeout(() => { if (progress) progress.hidden = true; link.removeAttribute('aria-busy'); }, 4500);
+    }));
+    sync();
+}
+
+document.addEventListener('DOMContentLoaded', initReportCenter);

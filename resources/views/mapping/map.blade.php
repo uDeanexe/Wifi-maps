@@ -19,105 +19,9 @@
                 : 'Semua tanggal',
         ];
         $activeFilterSummary = collect($filterSummary)->reject(fn ($value) => in_array($value, ['Semua', 'Semua tipe', 'Semua tanggal'], true));
-        $reportActions = [
-            ['label' => 'Unduh Report Lengkap', 'url' => route('reports.topology.pdf')],
-        ];
     @endphp
 
-    <div class="map-page-header mb-5">
-        <div class="flex min-w-0 flex-col gap-3">
-            <div>
-                <h2 class="text-2xl font-black leading-7 text-slate-950 sm:text-3xl">Peta Jaringan</h2>
-                <p class="mt-1 text-sm font-medium text-slate-500">Pantau node, link, filter data, lalu cetak report sesuai kebutuhan.</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                @forelse ($activeFilterSummary as $label => $value)
-                    <span class="map-filter-chip">{{ $label }}: {{ $value }}</span>
-                @empty
-                    <span class="map-filter-chip is-muted">Semua data tampil</span>
-                @endforelse
-            </div>
-        </div>
-        <div class="map-actions">
-            <a class="map-action-btn" href="{{ route('reports.index') }}">Pusat Report</a>
-            @foreach ($reportActions as $action)
-                <button type="button" class="map-action-btn" data-report-confirm data-report-label="{{ $action['label'] }}" data-report-url="{{ $action['url'] }}">{{ $action['label'] }}</button>
-            @endforeach
-        </div>
-    </div>
-
-    <dialog id="report-confirm-modal" class="modal-shell">
-        <form method="get" action="#" data-report-form>
-            <div class="modal-header">
-                <div>
-                    <h3 class="text-lg font-black text-slate-900">Konfirmasi Report</h3>
-                    <p class="mt-1 text-sm text-slate-500">Filter awal mengikuti Map View. Ubah jika perlu sebelum download.</p>
-                </div>
-                <button type="button" class="btn" data-modal-close>Tutup</button>
-            </div>
-            <div class="modal-body grid gap-4">
-                <div class="rounded-lg border border-sky-100 bg-sky-50 p-4">
-                    <div class="text-xs font-bold uppercase text-slate-500">Jenis report</div>
-                    <div class="mt-1 text-lg font-black text-slate-950" data-report-selected>-</div>
-                </div>
-                <div class="grid gap-3">
-                    <label class="filter-field">
-                        <span class="form-label">Cari</span>
-                        <input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Kode, nama, alamat...">
-                    </label>
-                    <label class="filter-field">
-                        <span class="form-label">Tipe Node</span>
-                        <select name="type" class="form-control">
-                            <option value="">Semua tipe</option>
-                            @foreach ($nodeTypes as $type)
-                                <option value="{{ $type->id }}" @selected((string) ($filters['type'] ?? '') === (string) $type->id)>{{ $type->label }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <label class="filter-field">
-                            <span class="form-label">Foto</span>
-                            <select name="photo" class="form-control">
-                                <option value="">Semua</option>
-                                <option value="with" @selected(($filters['photo'] ?? '') === 'with')>Ada foto</option>
-                                <option value="without" @selected(($filters['photo'] ?? '') === 'without')>Belum ada foto</option>
-                            </select>
-                        </label>
-                        <label class="filter-field">
-                            <span class="form-label">Koordinat</span>
-                            <select name="coords" class="form-control">
-                                <option value="">Semua</option>
-                                <option value="with" @selected(($filters['coords'] ?? '') === 'with')>Ada koordinat</option>
-                                <option value="without" @selected(($filters['coords'] ?? '') === 'without')>Belum ada koordinat</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <div class="mb-2 text-xs font-bold uppercase text-slate-500">Tanggal</div>
-                        <div class="grid gap-3 sm:grid-cols-2">
-                            <label class="filter-field">
-                                <span class="form-label">Dari</span>
-                                <input name="date_from" type="date" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
-                            </label>
-                            <label class="filter-field">
-                                <span class="form-label">Sampai</span>
-                                <input name="date_to" type="date" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">
-                    Data Map View saat ini: {{ count($mapNodes) }} node / {{ count($mapLinks) }} link. Dibuat: {{ $generatedAt }}.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn" data-modal-close>Batal</button>
-                <button class="btn-primary">Lanjut Download</button>
-            </div>
-        </form>
-    </dialog>
-
-    <div class="relative h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="map-full-canvas relative min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div id="network-map" class="h-full w-full"></div>
         <details class="map-filter-popover absolute left-3 bottom-3 z-[600] w-[min(390px,calc(100%-1.5rem))]">
             <summary class="inline-flex cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 bg-white/95 px-4 py-2.5 text-sm font-black text-slate-800 shadow-sm backdrop-blur transition-colors hover:bg-slate-50">
@@ -192,6 +96,10 @@
     </div>
 
     <style>
+        .map-full-canvas {
+            height: calc(100dvh - 6rem);
+        }
+
         #network-map,
         #network-map .leaflet-container {
             width: 100%;
@@ -211,69 +119,10 @@
             display: none;
         }
 
-        .map-page-header {
-            display: grid;
-            grid-template-columns: minmax(280px, 1fr) auto;
-            gap: 1rem;
-            align-items: end;
-            border: 1px solid #dbe3ef;
-            border-radius: 14px;
-            background: #ffffff;
-            padding: 1.125rem;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
-        }
-
-        .map-actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            max-width: 720px;
-        }
-
-        .map-action-btn {
-            display: inline-flex;
-            min-height: 42px;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            border: 1px solid #dbe3ef;
-            background: #ffffff;
-            padding: 0.625rem 1rem;
-            font-size: 0.875rem;
-            font-weight: 800;
-            color: #0f172a;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
-            transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
-        }
-
-        .map-action-btn:hover {
-            border-color: #bae6fd;
-            background: #f0f9ff;
-            transform: translateY(-1px);
-        }
-
-        .map-action-btn.is-refresh {
-            background: #f8fafc;
-            color: #334155;
-        }
-
-        .map-filter-chip {
-            display: inline-flex;
-            align-items: center;
-            border-radius: 999px;
-            border: 1px solid #bae6fd;
-            background: #f0f9ff;
-            padding: 0.375rem 0.625rem;
-            font-size: 0.75rem;
-            font-weight: 800;
-            color: #075985;
-        }
-
-        .map-filter-chip.is-muted {
-            border-color: #e2e8f0;
-            background: #f8fafc;
-            color: #64748b;
+        @media (min-width: 1024px) {
+            .map-full-canvas {
+                height: calc(100dvh - 8rem);
+            }
         }
 
         .filter-field {
@@ -288,19 +137,6 @@
         }
 
         @media (max-width: 640px) {
-            .map-page-header {
-                grid-template-columns: 1fr;
-                padding: 1rem;
-            }
-
-            .map-actions {
-                justify-content: stretch;
-            }
-
-            .map-action-btn {
-                flex: 1 1 145px;
-            }
-
             .map-status-badge {
                 left: 0.75rem;
                 right: 0.75rem;
@@ -327,20 +163,6 @@
             const MAX_ZOOM = 18;
             const osrmEnabled = @json((bool) config('services.osrm.enabled', true));
             const osrmStatusEl = document.querySelector('[data-osrm-status]');
-            const reportModal = document.getElementById('report-confirm-modal');
-            const reportSelected = document.querySelector('[data-report-selected]');
-            const reportForm = document.querySelector('[data-report-form]');
-
-            document.querySelectorAll('[data-report-confirm]').forEach((button) => {
-                button.addEventListener('click', () => {
-                    if (!reportModal || !reportForm || !reportSelected) return;
-                    reportSelected.textContent = button.dataset.reportLabel || '-';
-                    reportForm.action = button.dataset.reportUrl || '#';
-                    reportModal.showModal();
-                    document.body.classList.add('overflow-hidden');
-                });
-            });
-
             const colors = {
                 odc: '#7c3aed',
                 pon: '#2563eb',

@@ -92,6 +92,7 @@
             <span class="font-black text-slate-900">{{ count($mapLinks) }} link</span>
             <span class="ml-2 text-slate-500">Update {{ $generatedAt }}</span>
         </div>
+        <div data-map-toast class="pointer-events-none absolute right-3 top-3 z-[700] hidden max-w-xs rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-xl"></div>
     </div>
 
     <style>
@@ -124,12 +125,25 @@
             };
             const MIN_ZOOM = 10;
             const MAX_ZOOM = 18;
+            const SNAP_DISTANCE_PX = 34;
             const colors = { odc: '#7c3aed', pon: '#2563eb', box: '#059669', pole: '#d97706', customer: '#111827', server: '#0f766e', olc: '#be123c' };
             const drawStyles = {
                 marker: { color: '#0284c7' },
                 polyline: { color: '#0284c7', weight: 3, opacity: .9 },
                 polygon: { color: '#0f766e', weight: 2, opacity: .9, fillOpacity: .18 },
                 rectangle: { color: '#7c3aed', weight: 2, opacity: .9, fillOpacity: .14 },
+            };
+
+            const toastEl = document.querySelector('[data-map-toast]');
+            let toastTimer = null;
+            const showToast = (message, tone = 'success') => {
+                if (!toastEl) return;
+                clearTimeout(toastTimer);
+                toastEl.textContent = message;
+                toastEl.classList.remove('hidden', 'border-rose-200', 'text-rose-800', 'bg-rose-50', 'border-emerald-200', 'text-emerald-800', 'bg-emerald-50');
+                if (tone === 'error') toastEl.classList.add('border-rose-200', 'text-rose-800', 'bg-rose-50');
+                else toastEl.classList.add('border-emerald-200', 'text-emerald-800', 'bg-emerald-50');
+                toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 2600);
             };
 
             const normalizePoint = (latRaw, lngRaw) => {
@@ -143,10 +157,10 @@
                 if (Math.abs(fixedLat) < 1e-9 && Math.abs(fixedLng) < 1e-9) return null;
                 return [fixedLat, fixedLng];
             };
-
-            const hasCoords = (node) => !!normalizePoint(node.latitude, node.longitude);
+            const pointOfNode = (node) => normalizePoint(node.latitude, node.longitude);
+            const hasCoords = (node) => !!pointOfNode(node);
             const mappedNodes = nodes.filter(hasCoords);
-            const center = mappedNodes[0] ? normalizePoint(mappedNodes[0].latitude, mappedNodes[0].longitude) : [-6.2615, 107.1528];
+            const center = mappedNodes[0] ? pointOfNode(mappedNodes[0]) : [-6.2615, 107.1528];
             const map = L.map('network-map', { zoomControl: true, scrollWheelZoom: true, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM }).setView(center, mappedNodes.length ? 15 : 12);
 
             const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: MAX_ZOOM, attribution: '&copy; OpenStreetMap contributors' });
@@ -170,12 +184,30 @@
 
             const byId = new Map(nodes.map((node) => [String(node.id), node]));
             const markersById = new Map();
+            const networkLines = [];
             const bounds = [];
             const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
             const markerIcon = (node) => L.divIcon({ className: '', iconSize: [18, 18], iconAnchor: [9, 9], html: `<span style="display:block;width:18px;height:18px;border-radius:999px;background:${colors[node.type] || '#111827'};border:2px solid white;box-shadow:0 6px 16px rgba(0,0,0,.22)"></span>` });
+            const headers = () => ({ 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': drawApi.csrf });
+
+            const nearestNode = (latlng) => {
+                const currentPoint = map.latLngToContainerPoint(latlng);
+                let best = null;
+                mappedNodes.forEach((node) => {
+                    const point = pointOfNode(node);
+                    if (!point) return;
+                    const distance = currentPoint.distanceTo(map.latLngToContainerPoint(point));
+                    if (distance <= SNAP_DISTANCE_PX && (!best || distance < best.distance)) best = { node, point, distance };
+                });
+                return best;
+            };
+            const latLngFromNode = (nodeId) => {
+                const node = byId.get(String(nodeId));
+                const point = node ? pointOfNode(node) : null;
+                return point ? L.latLng(point[0], point[1]) : null;
+            };
 
             const drawnItems = new L.FeatureGroup().addTo(map);
-            const headers = () => ({ 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': drawApi.csrf });
             const drawUrl = (id) => `${drawApi.base}/${encodeURIComponent(id)}`;
             const layerTypeOf = (layer, fallback = 'polyline') => {
                 if (layer._drawingType) return layer._drawingType;
@@ -185,19 +217,63 @@
                 if (layer instanceof L.Polyline) return 'polyline';
                 return fallback;
             };
-            const payloadFor = (layer, fallbackType) => ({
-                type: layerTypeOf(layer, fallbackType),
-                name: layer._drawingName || null,
-                geometry: layer.toGeoJSON().geometry,
-                properties: { source: 'leaflet-draw' },
-            });
+            const snapPolylineToNodes = (layer) => {
+                if (layerTypeOf(layer) !== 'polyline' || !(layer instanceof L.Polyline)) return false;
+                const latlngs = layer.getLatLngs();
+                if (!Array.isArray(latlngs) || latlngs.length < 2 || Array.isArray(latlngs[0])) return false;
+                const firstSnap = nearestNode(latlngs[0]);
+                const lastSnap = nearestNode(latlngs[latlngs.length - 1]);
+                layer._drawingProps = { ...(layer._drawingProps || {}), source: 'leaflet-draw' };
+                if (firstSnap) {
+                    latlngs[0] = L.latLng(firstSnap.point[0], firstSnap.point[1]);
+                    layer._drawingProps.source_node_id = firstSnap.node.id;
+                    layer._drawingProps.source_node_code = firstSnap.node.code;
+                }
+                if (lastSnap) {
+                    latlngs[latlngs.length - 1] = L.latLng(lastSnap.point[0], lastSnap.point[1]);
+                    layer._drawingProps.target_node_id = lastSnap.node.id;
+                    layer._drawingProps.target_node_code = lastSnap.node.code;
+                }
+                layer.setLatLngs(latlngs);
+                return !!(firstSnap || lastSnap);
+            };
+            const refreshSnappedDrawings = () => {
+                drawnItems.eachLayer((layer) => {
+                    if (layerTypeOf(layer) !== 'polyline' || !(layer instanceof L.Polyline)) return;
+                    const props = layer._drawingProps || {};
+                    const latlngs = layer.getLatLngs();
+                    if (!Array.isArray(latlngs) || latlngs.length < 2 || Array.isArray(latlngs[0])) return;
+                    const start = props.source_node_id ? latLngFromNode(props.source_node_id) : null;
+                    const end = props.target_node_id ? latLngFromNode(props.target_node_id) : null;
+                    if (start) latlngs[0] = start;
+                    if (end) latlngs[latlngs.length - 1] = end;
+                    if (start || end) {
+                        layer.setLatLngs(latlngs);
+                        updateLayer(layer).catch(() => {});
+                    }
+                });
+            };
+            const payloadFor = (layer, fallbackType) => {
+                snapPolylineToNodes(layer);
+                return {
+                    type: layerTypeOf(layer, fallbackType),
+                    name: layer._drawingName || null,
+                    geometry: layer.toGeoJSON().geometry,
+                    properties: { source: 'leaflet-draw', ...(layer._drawingProps || {}) },
+                };
+            };
             const bindDrawPopup = (layer, type, record = null) => {
+                const props = layer._drawingProps || record?.properties || {};
                 const geometryText = JSON.stringify(layer.toGeoJSON()?.geometry ?? record?.geometry ?? null, null, 2);
                 const savedText = layer._drawingId ? `Tersimpan #${layer._drawingId}` : 'Belum tersimpan';
+                const connectText = props.source_node_code || props.target_node_code
+                    ? `<div style="margin-top:4px;font-size:12px;color:#0f766e">Nempel node: ${escapeHtml(props.source_node_code || '-')} → ${escapeHtml(props.target_node_code || '-')}</div>`
+                    : '';
                 layer.bindPopup(`
                     <div style="min-width:260px">
                         <div style="font-weight:800;color:#0f172a">Gambar: ${escapeHtml(type)}</div>
                         <div style="margin-top:4px;font-size:12px;color:#64748b">${escapeHtml(savedText)}</div>
+                        ${connectText}
                         <textarea class="draw-popup-copy" readonly>${escapeHtml(geometryText)}</textarea>
                     </div>
                 `);
@@ -208,6 +284,7 @@
                 const data = await response.json();
                 layer._drawingId = data.id;
                 layer._drawingType = data.type;
+                layer._drawingProps = data.properties || layer._drawingProps || {};
                 bindDrawPopup(layer, data.type, data);
                 return data;
             };
@@ -216,6 +293,7 @@
                 const response = await fetch(drawUrl(layer._drawingId), { method: 'PUT', headers: headers(), body: JSON.stringify(payloadFor(layer, layer._drawingType)) });
                 if (!response.ok) throw new Error('Gagal memperbarui gambar.');
                 const data = await response.json();
+                layer._drawingProps = data.properties || layer._drawingProps || {};
                 bindDrawPopup(layer, data.type, data);
                 return data;
             };
@@ -234,6 +312,7 @@
                         layer._drawingId = record.id;
                         layer._drawingType = record.type;
                         layer._drawingName = record.name || null;
+                        layer._drawingProps = record.properties || {};
                         drawnItems.addLayer(layer);
                         bindDrawPopup(layer, record.type, record);
                     },
@@ -262,33 +341,81 @@
                 map.on(L.Draw.Event.CREATED, async (event) => {
                     const layer = event.layer;
                     layer._drawingType = event.layerType || layerTypeOf(layer);
+                    layer._drawingProps = { source: 'leaflet-draw' };
+                    snapPolylineToNodes(layer);
                     drawnItems.addLayer(layer);
                     bindDrawPopup(layer, layer._drawingType);
-                    try { await saveLayer(layer, layer._drawingType); layer.openPopup?.(); }
-                    catch (error) { drawnItems.removeLayer(layer); alert(error.message); }
+                    try {
+                        await saveLayer(layer, layer._drawingType);
+                        layer.openPopup?.();
+                        showToast('Gambar berhasil disimpan.');
+                    } catch (error) {
+                        drawnItems.removeLayer(layer);
+                        showToast(error.message, 'error');
+                    }
                 });
-                map.on(L.Draw.Event.EDITED, (event) => event.layers.eachLayer((layer) => updateLayer(layer).catch((error) => alert(error.message))));
-                map.on(L.Draw.Event.DELETED, (event) => event.layers.eachLayer((layer) => deleteLayer(layer).catch((error) => alert(error.message))));
+                map.on(L.Draw.Event.EDITED, (event) => event.layers.eachLayer((layer) => updateLayer(layer)
+                    .then(() => showToast('Gambar berhasil diperbarui.'))
+                    .catch((error) => showToast(error.message, 'error'))));
+                map.on(L.Draw.Event.DELETED, (event) => event.layers.eachLayer((layer) => deleteLayer(layer)
+                    .then(() => showToast('Gambar berhasil dihapus.'))
+                    .catch((error) => showToast(error.message, 'error'))));
             }
 
-            mappedNodes.forEach((node) => {
-                const point = normalizePoint(node.latitude, node.longitude);
-                if (!point) return;
-                bounds.push(point);
-                const mapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${point[0]},${point[1]}`)}`;
+            const refreshNetworkLinks = () => {
+                networkLines.forEach(({ sourceId, targetId, line }) => {
+                    const source = byId.get(String(sourceId));
+                    const target = byId.get(String(targetId));
+                    const sourcePoint = source ? pointOfNode(source) : null;
+                    const targetPoint = target ? pointOfNode(target) : null;
+                    if (sourcePoint && targetPoint) line.setLatLngs([sourcePoint, targetPoint]);
+                });
+            };
+            const updateNodeCoordinates = async (node, marker, oldPoint) => {
+                const position = marker.getLatLng();
+                const payload = { latitude: position.lat, longitude: position.lng };
+                const response = await fetch(node.coordinate_url, { method: 'PATCH', headers: headers(), body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error('Gagal menyimpan posisi node.');
+                const data = await response.json();
+                node.latitude = data.latitude;
+                node.longitude = data.longitude;
+                marker.setLatLng([data.latitude, data.longitude]);
+                refreshNetworkLinks();
+                refreshSnappedDrawings();
+                bindNodePopup(marker, node);
+                showToast('Posisi node berhasil disimpan.');
+            };
+            const bindNodePopup = (marker, node) => {
+                const point = pointOfNode(node) || marker.getLatLng();
+                const mapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${point[0] ?? point.lat},${point[1] ?? point.lng}`)}`;
                 const photoSrc = node.photo_url || node.photo_path;
                 const photo = photoSrc ? `<img src="${escapeHtml(photoSrc)}" alt="${escapeHtml(node.code)}" style="margin-top:8px;max-width:220px;border-radius:8px;border:1px solid #e2e8f0">` : '';
-                const marker = L.marker(point, { icon: markerIcon(node) }).addTo(map).bindPopup(`
-                    <div style="min-width:220px">
+                marker.bindPopup(`
+                    <div style="min-width:230px">
                         <div style="font-weight:800;font-size:14px;color:#0f172a">${escapeHtml(node.code)}</div>
                         <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Nama:</span> ${escapeHtml(node.name || '-')}</div>
                         <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Jenis:</span> ${escapeHtml(node.type || '-')}</div>
-                        <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Koordinat:</span> ${escapeHtml(point[0])}, ${escapeHtml(point[1])}</div>
+                        <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Koordinat:</span> ${escapeHtml(point[0] ?? point.lat)}, ${escapeHtml(point[1] ?? point.lng)}</div>
+                        <div style="margin-top:6px;font-size:12px;color:#0f766e;font-weight:700">Titik ini bisa ditarik. Ujung garis yang dekat node akan menempel otomatis.</div>
                         <div style="margin-top:8px"><a href="${mapsUrl}" target="_blank" rel="noreferrer" style="font-weight:700;color:#0369a1">Buka di Google Maps</a></div>
                         <div style="margin-top:8px;font-size:13px;color:#334155"><span style="color:#64748b">Alamat:</span> ${escapeHtml(node.address || '-')}</div>
                         <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Catatan:</span> ${escapeHtml(node.notes || '-')}</div>${photo}
                     </div>
                 `);
+            };
+
+            mappedNodes.forEach((node) => {
+                const point = pointOfNode(node);
+                if (!point) return;
+                bounds.push(point);
+                const marker = L.marker(point, { icon: markerIcon(node), draggable: true }).addTo(map);
+                bindNodePopup(marker, node);
+                marker.on('dragstart', () => { marker._oldPoint = pointOfNode(node); marker.closePopup(); });
+                marker.on('dragend', () => updateNodeCoordinates(node, marker, marker._oldPoint)
+                    .catch((error) => {
+                        if (marker._oldPoint) marker.setLatLng(marker._oldPoint);
+                        showToast(error.message, 'error');
+                    }));
                 markersById.set(String(node.id), marker);
             });
 
@@ -296,20 +423,21 @@
                 const source = byId.get(String(link.source_node_id));
                 const target = byId.get(String(link.target_node_id));
                 if (!source || !target || !hasCoords(source) || !hasCoords(target)) return;
-                const sourcePoint = normalizePoint(source.latitude, source.longitude);
-                const targetPoint = normalizePoint(target.latitude, target.longitude);
+                const sourcePoint = pointOfNode(source);
+                const targetPoint = pointOfNode(target);
                 if (!sourcePoint || !targetPoint) return;
                 const label = [link.cable_type, link.core_count ? `core ${link.core_count}` : null, link.core_number].filter(Boolean).join(' - ');
-                L.polyline([sourcePoint, targetPoint], { color: colors[source.type] || '#0f172a', weight: 1.8, opacity: .72, dashArray: '6 8', lineCap: 'round', lineJoin: 'round' }).addTo(map).bindPopup(`
+                const line = L.polyline([sourcePoint, targetPoint], { color: colors[source.type] || '#0f172a', weight: 1.8, opacity: .72, dashArray: '6 8', lineCap: 'round', lineJoin: 'round' }).addTo(map).bindPopup(`
                     <div style="font-weight:800">${escapeHtml(source.code)} -> ${escapeHtml(target.code)}</div>
                     <div style="margin-top:4px;color:#64748b">${escapeHtml(label || 'Link')}</div>
                 `);
+                networkLines.push({ sourceId: link.source_node_id, targetId: link.target_node_id, line });
             });
 
             const fitAll = () => { if (bounds.length) map.fitBounds(bounds, { padding: [40, 40], maxZoom: MAX_ZOOM - 1 }); };
             const focusNode = focus?.node_id ? byId.get(String(focus.node_id)) : null;
             if (focusNode && hasCoords(focusNode)) {
-                const point = normalizePoint(focusNode.latitude, focusNode.longitude);
+                const point = pointOfNode(focusNode);
                 if (point) map.setView(point, Math.min(MAX_ZOOM, 18));
                 setTimeout(() => markersById.get(String(focusNode.id))?.openPopup(), 250);
             } else {

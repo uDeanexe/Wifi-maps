@@ -3,12 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Link;
-use App\Models\LinkRoute;
 use App\Models\Node;
 use App\Models\NodeType;
 use App\Models\User;
 use App\Services\MappingService;
-use App\Services\OsrmRoutingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -51,7 +49,6 @@ class MappingController extends Controller
             ->whereIn('target_node_id', $nodeIds)
             ->latest()
             ->get();
-        $routesByLinkId = $this->ensureLinkRoutes($links);
 
         return view('mapping.map', [
             'nodeTypes' => NodeType::orderBy('id')->get(),
@@ -77,82 +74,12 @@ class MappingController extends Controller
                 'cable_type' => $link->cable_type,
                 'core_count' => $link->core_count,
                 'core_number' => $link->core_number,
-                'route_geometry' => $routesByLinkId[(string) $link->id]['geometry'] ?? null,
             ])->values(),
             'mapFocus' => [
                 'node_id' => request('focus_node'),
                 'latitude' => request('lat'),
                 'longitude' => request('lng'),
             ],
-        ]);
-    }
-
-    private function ensureLinkRoutes($links): array
-    {
-        if (! (bool) config('services.osrm.enabled', true)) {
-            return [];
-        }
-
-        $routing = new OsrmRoutingService();
-        $linkIds = $links->pluck('id')->values();
-        $existing = LinkRoute::whereIn('link_id', $linkIds)->get()->keyBy(fn (LinkRoute $route) => (string) $route->link_id);
-        $result = [];
-
-        foreach ($links as $link) {
-            $route = $existing->get((string) $link->id);
-            if ($route && is_array($route->geometry) && count($route->geometry) >= 2) {
-                $result[(string) $link->id] = [
-                    'geometry' => $route->geometry,
-                ];
-                continue;
-            }
-
-            if ($route?->last_error && $route->updated_at?->isAfter(now()->subMinutes(5))) {
-                continue;
-            }
-
-            $source = $link->source;
-            $target = $link->target;
-            if (! $source || ! $target || ! is_numeric($source->latitude) || ! is_numeric($source->longitude) || ! is_numeric($target->latitude) || ! is_numeric($target->longitude)) {
-                continue;
-            }
-
-            try {
-                $routed = $routing->route((float) $source->latitude, (float) $source->longitude, (float) $target->latitude, (float) $target->longitude);
-                $model = $route ?: new LinkRoute(['link_id' => $link->id]);
-                $model->provider = 'osrm';
-                $model->geometry = $routed['geometry'];
-                $model->distance_meters = $routed['distance_meters'];
-                $model->duration_seconds = $routed['duration_seconds'];
-                $model->last_error = null;
-                $model->save();
-
-                $result[(string) $link->id] = [
-                    'geometry' => $model->geometry,
-                ];
-            } catch (\Throwable $e) {
-                if ($route) {
-                    $route->last_error = substr($e->getMessage(), 0, 500);
-                    $route->save();
-                } else {
-                    LinkRoute::create([
-                        'link_id' => $link->id,
-                        'provider' => 'osrm',
-                        'geometry' => null,
-                        'last_error' => substr($e->getMessage(), 0, 500),
-                    ]);
-                }
-            }
-        }
-
-        return $result;
-    }
-
-    public function topology(): View
-    {
-        return view('mapping.topology', [
-            'nodes' => Node::with('type')->orderBy('id')->get(),
-            'links' => Link::with(['source', 'target'])->latest()->get(),
         ]);
     }
 
@@ -232,22 +159,6 @@ class MappingController extends Controller
         $this->service->deleteNode($node);
 
         return back()->with('status', 'Node berhasil dihapus.');
-    }
-
-    public function updateNodePosition(Request $request, Node $node)
-    {
-        $data = $request->validate([
-            'topology_x' => ['required', 'integer'],
-            'topology_y' => ['required', 'integer'],
-        ]);
-
-        $node->update($data);
-
-        if ($request->expectsJson()) {
-            return response()->json(['message' => 'Posisi topology berhasil disimpan.']);
-        }
-
-        return back()->with('status', 'Posisi topology berhasil disimpan.');
     }
 
     public function links(): View
@@ -477,8 +388,6 @@ class MappingController extends Controller
             'longitude' => ['nullable', 'required_with:latitude', 'numeric'],
             'address' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
-            'topology_x' => ['nullable', 'integer'],
-            'topology_y' => ['nullable', 'integer'],
             'photo' => ['nullable', 'image', 'max:5120'],
         ];
     }

@@ -24,21 +24,23 @@ try {
 
 fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
 
-const doc = new PDFDocument({ size: 'A4', margin: 28, bufferPages: true, autoFirstPage: false });
+const doc = new PDFDocument({ size: 'A4', margin: 26, bufferPages: true, autoFirstPage: false });
 const stream = fs.createWriteStream(outputPath);
 doc.pipe(stream);
 
-const page = { width: 595.28, height: 841.89, margin: 28 };
+const page = { width: 595.28, height: 841.89, margin: 26 };
 const colors = {
   ink: '#0f172a',
   muted: '#64748b',
   faint: '#94a3b8',
   line: '#dbe3ef',
+  lineDark: '#bfdbfe',
   blue: '#0284c7',
   blueDark: '#075985',
-  softBlue: '#eef6ff',
+  blueSoft: '#e0f2fe',
+  bluePale: '#f0f9ff',
   soft: '#f8fafc',
-  green: '#059669',
+  white: '#ffffff',
 };
 
 function val(value, fallback = '-') {
@@ -72,14 +74,14 @@ function routeLine(link) {
   return `${val(link?.source_code)} → ${val(link?.target_code)}`;
 }
 
-function coreLine(link) {
+function coreText(link) {
   const core = [link?.core_count, link?.core_number].filter(Boolean).map((v) => val(v)).join(' / ');
-  return core ? `Core: ${core}` : 'Core: -';
+  return core || '-';
 }
 
-function ponOdcLine(link) {
+function ponOdcText(link) {
   const parts = [link?.pon_name, link?.odc_name].filter(Boolean).map((v) => val(v));
-  return parts.length ? `PON/ODC: ${fit(parts.join(' / '), 40)}` : 'PON/ODC: -';
+  return parts.length ? fit(parts.join(' / '), 34) : '-';
 }
 
 function qrValue(link) {
@@ -101,41 +103,55 @@ function qrValue(link) {
   return rows.filter(Boolean).join('|').slice(0, 480);
 }
 
-function safeText(text, x, y, width, font = 'Helvetica', size = 8, color = colors.ink, height = size + 3) {
+function safeText(text, x, y, width, font = 'Helvetica', size = 8, color = colors.ink, height = size + 3, options = {}) {
   doc.font(font).fontSize(size).fillColor(color);
-  doc.text(String(text), x, y, { width, height, lineBreak: false, ellipsis: true });
+  doc.text(String(text), x, y, { width, height, lineBreak: false, ellipsis: true, ...options });
+}
+
+function detailRow(label, value, x, y, width) {
+  const labelW = 44;
+  safeText(label, x, y, labelW, 'Helvetica-Bold', 7.3, colors.muted, 10);
+  safeText(value, x + labelW, y, width - labelW, 'Helvetica', 7.5, colors.ink, 10);
 }
 
 async function drawSticker(link, x, y, width, height, qrCache) {
-  doc.roundedRect(x, y, width, height, 10).fillAndStroke('#ffffff', colors.line);
-  doc.roundedRect(x, y, 5, height, 2).fill(colors.blue);
+  doc.roundedRect(x, y, width, height, 10).fillAndStroke(colors.white, colors.lineDark);
+  doc.roundedRect(x, y, 5.5, height, 2).fill(colors.blue);
 
-  const pad = 11;
-  const qrSize = 86;
+  const pad = 10;
+  const qrSize = 76;
   const value = qrValue(link);
   let qr = qrCache.get(value);
   if (!qr) {
-    qr = await QRCode.toBuffer(value, { type: 'png', margin: 1, width: 172 });
+    qr = await QRCode.toBuffer(value, { type: 'png', margin: 1, width: 156 });
     qrCache.set(value, qr);
   }
 
-  doc.image(qr, x + pad, y + pad, { width: qrSize, height: qrSize });
+  const qrX = x + pad + 2;
+  const qrY = y + pad + 4;
+  doc.roundedRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8, 7).fillAndStroke('#ffffff', '#e2e8f0');
+  doc.image(qr, qrX, qrY, { width: qrSize, height: qrSize });
 
-  const textX = x + pad + qrSize + 12;
-  const textW = width - (textX - x) - pad;
+  const textX = qrX + qrSize + 16;
+  const textW = width - (textX - x) - pad - 2;
   const name = cableName(link);
-  const type = normalizedCableType(link);
+  const type = normalizedCableType(link) || '-';
 
-  safeText(fit(name, 32), textX, y + pad + 1, textW, 'Helvetica-Bold', 10, colors.ink, 13);
-  safeText(`Rute: ${fit(routeLine(link), 34)}`, textX, y + pad + 17, textW, 'Helvetica', 8, colors.ink, 11);
-  safeText(type ? `Jenis: ${fit(type, 30)}` : 'Jenis: -', textX, y + pad + 30, textW, 'Helvetica', 8, colors.ink, 11);
-  safeText(coreLine(link), textX, y + pad + 43, textW, 'Helvetica', 8, colors.ink, 11);
-  safeText(ponOdcLine(link), textX, y + pad + 56, textW, 'Helvetica', 8, colors.ink, 11);
+  safeText(fit(name, 30), textX, y + pad + 2, textW, 'Helvetica-Bold', 9.6, colors.ink, 13);
+  safeText(`Rute: ${fit(routeLine(link), 34)}`, textX, y + pad + 17, textW, 'Helvetica', 7.5, colors.muted, 10);
 
-  doc.roundedRect(textX, y + height - pad - 18, textW, 16, 5).fill(colors.softBlue);
-  safeText(`ID: ${val(link?.id)}   Scan untuk identitas link`, textX + 7, y + height - pad - 13.2, textW - 14, 'Helvetica-Bold', 7.2, colors.blueDark, 10);
+  const boxY = y + pad + 33;
+  const boxH = 42;
+  doc.roundedRect(textX, boxY, textW, boxH, 7).fillAndStroke(colors.soft, colors.line);
+  detailRow('Jenis', type, textX + 7, boxY + 7, textW - 14);
+  detailRow('Core', coreText(link), textX + 7, boxY + 19, textW - 14);
+  detailRow('PON/ODC', ponOdcText(link), textX + 7, boxY + 31, textW - 14);
 
-  safeText(fit(value, 78), x + pad, y + height - pad - 9, width - pad * 2, 'Helvetica', 5.7, colors.faint, 8);
+  const footerY = y + height - pad - 18;
+  doc.roundedRect(textX, footerY, textW, 18, 6).fill(colors.bluePale);
+  safeText(`ID ${val(link?.id)}  •  Scan QR`, textX + 8, footerY + 5.2, textW - 16, 'Helvetica-Bold', 7.4, colors.blueDark, 9, { align: 'center' });
+
+  safeText('WIFI MAPS', qrX - 4, y + height - pad - 9, qrSize + 8, 'Helvetica-Bold', 5.8, colors.faint, 8, { align: 'center' });
 }
 
 function drawHeader(copy, copies) {
@@ -170,8 +186,8 @@ async function render() {
   const links = Array.isArray(payload.links) ? payload.links : [];
   const copies = Math.max(1, Math.min(Number(payload?.stickers?.copies) || 3, 6));
   const cols = 2;
-  const rows = 5;
-  const gap = 12;
+  const rows = 6;
+  const gap = 10;
   const startY = page.margin + 48;
   const usableW = page.width - page.margin * 2;
   const usableH = page.height - startY - page.margin;

@@ -7,6 +7,7 @@ use App\Models\Node;
 use App\Models\NodeType;
 use App\Models\User;
 use App\Services\MappingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -66,6 +67,7 @@ class MappingController extends Controller
                 'notes' => $node->notes,
                 'photo_path' => $node->photo_path,
                 'photo_url' => $node->photo_path ? url($node->photo_path) : null,
+                'coordinate_url' => route('nodes.coordinates', $node),
             ])->values(),
             'mapLinks' => $links->map(fn (Link $link) => [
                 'id' => $link->id,
@@ -152,6 +154,26 @@ class MappingController extends Controller
         $this->service->updateNode($node, $request->validate($this->nodeRules($node)), $request->file('photo'));
 
         return back()->with('status', 'Node berhasil diupdate.');
+    }
+
+    public function updateNodeCoordinates(Request $request, Node $node): JsonResponse
+    {
+        $data = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $node->update([
+            'latitude' => $data['latitude'],
+            'longitude' => $data['longitude'],
+        ]);
+
+        return response()->json([
+            'message' => 'Koordinat node berhasil disimpan.',
+            'id' => $node->id,
+            'latitude' => (float) $node->latitude,
+            'longitude' => (float) $node->longitude,
+        ]);
     }
 
     public function deleteNode(Node $node): RedirectResponse

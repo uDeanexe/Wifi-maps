@@ -17,12 +17,10 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
     Route::get('/', [MappingController::class, 'dashboard'])->name('dashboard');
     Route::get('/map', [MappingController::class, 'map'])->name('map');
-    Route::get('/topology', [MappingController::class, 'topology'])->name('topology');
 
     Route::get('/nodes', [MappingController::class, 'nodes'])->name('nodes.index');
     Route::post('/nodes', [MappingController::class, 'storeNode'])->name('nodes.store');
     Route::put('/nodes/{node}', [MappingController::class, 'updateNode'])->name('nodes.update');
-    Route::patch('/nodes/{node}/position', [MappingController::class, 'updateNodePosition'])->name('nodes.position');
     Route::delete('/nodes/{node}', [MappingController::class, 'deleteNode'])->name('nodes.destroy');
 
     Route::get('/links', [MappingController::class, 'links'])->name('links.index');
@@ -37,7 +35,6 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->name('users.destroy');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::get('/reports/topology.pdf', [ReportController::class, 'topologyPdf'])->name('reports.topology.pdf');
     Route::get('/reports/nodes.pdf', [ReportController::class, 'nodesPdf'])->name('reports.nodes.pdf');
     Route::get('/reports/nodes/visual-a4.pdf', [ReportController::class, 'nodesVisualA4Pdf'])->name('reports.nodes.visual-a4.pdf');
     Route::get('/reports/links.pdf', [ReportController::class, 'linksPdf'])->name('reports.links.pdf');

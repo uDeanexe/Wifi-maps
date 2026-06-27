@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Link;
+use App\Models\MapDrawing;
 use App\Models\Node;
 use App\Models\NodeType;
 use App\Models\User;
@@ -218,11 +219,21 @@ class MappingController extends Controller
         return back()->with('status', 'Link berhasil diupdate.');
     }
 
-    public function deleteLink(Link $link): RedirectResponse
+    public function deleteLink(Request $request, Link $link)
     {
+        $deletedDrawings = MapDrawing::where('properties->link_id', $link->id)->delete();
         $link->delete();
 
-        return back()->with('status', 'Link berhasil dihapus.');
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Link berhasil dihapus.',
+                'deleted_drawings' => $deletedDrawings,
+            ]);
+        }
+
+        return back()->with('status', $deletedDrawings > 0
+            ? 'Link dan garis map terkait berhasil dihapus.'
+            : 'Link berhasil dihapus.');
     }
 
     public function users(): View

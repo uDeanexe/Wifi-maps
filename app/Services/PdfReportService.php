@@ -18,7 +18,7 @@ class PdfReportService
 
         file_put_contents($input, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        $process = new Process([$this->nodeBinary(), resource_path('js/pdf-report.mjs'), $input, $output], base_path());
+        $process = new Process([$this->nodeBinary(), $this->generatorScript($payload), $input, $output], base_path());
         $process->setTimeout(60);
         $process->setEnv($this->processEnvironment());
         $process->run();
@@ -35,6 +35,15 @@ class PdfReportService
         }
 
         return $output;
+    }
+
+    private function generatorScript(array $payload): string
+    {
+        $script = ($payload['type'] ?? null) === 'link-stickers'
+            ? 'link-stickers-report.mjs'
+            : 'pdf-report.mjs';
+
+        return resource_path('js/'.$script);
     }
 
     private function nodeBinary(): string

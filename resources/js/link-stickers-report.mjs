@@ -86,21 +86,22 @@ function ponOdcText(link) {
 
 function qrValue(link) {
   const name = cableName(link);
-  const cableType = normalizedCableType(link);
+  const cableType = normalizedCableType(link) || '-';
   const rows = [
-    'WIFI_MAPS_LINK',
-    `id=${val(link?.id, '')}`,
-    `name=${name}`,
-    `from=${val(link?.source_code, '')}`,
-    `to=${val(link?.target_code, '')}`,
-    cableType ? `type=${cableType}` : null,
-    link?.core_count ? `core_count=${val(link.core_count)}` : null,
-    link?.core_number ? `core_no=${val(link.core_number)}` : null,
-    link?.pon_name ? `pon=${val(link.pon_name)}` : null,
-    link?.odc_name ? `odc=${val(link.odc_name)}` : null,
+    'WIFI MAPS - DATA LINK',
+    `ID Link: ${val(link?.id)}`,
+    `Nama Kabel: ${name}`,
+    `Dari Node: ${val(link?.source_code)}`,
+    `Ke Node: ${val(link?.target_code)}`,
+    `Rute: ${routeLine(link)}`,
+    `Jenis Kabel: ${cableType}`,
+    `Core: ${coreText(link)}`,
+    `PON/ODC: ${ponOdcText(link)}`,
+    link?.notes ? `Catatan: ${fit(link.notes, 120)}` : null,
+    payload?.generated_at ? `Generated: ${payload.generated_at}` : null,
   ];
 
-  return rows.filter(Boolean).join('|').slice(0, 480);
+  return rows.filter(Boolean).join('\n').slice(0, 720);
 }
 
 function safeText(text, x, y, width, font = 'Helvetica', size = 8, color = colors.ink, height = size + 3, options = {}) {
@@ -123,7 +124,7 @@ async function drawSticker(link, x, y, width, height, qrCache) {
   const value = qrValue(link);
   let qr = qrCache.get(value);
   if (!qr) {
-    qr = await QRCode.toBuffer(value, { type: 'png', margin: 1, width: 156 });
+    qr = await QRCode.toBuffer(value, { type: 'png', margin: 1, width: 168, errorCorrectionLevel: 'M' });
     qrCache.set(value, qr);
   }
 

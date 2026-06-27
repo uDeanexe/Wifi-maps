@@ -92,7 +92,10 @@
             <span class="font-black text-slate-900">{{ count($mapLinks) }} link</span>
             <span class="ml-2 text-slate-500">Update {{ $generatedAt }}</span>
         </div>
-        <div data-map-toast class="pointer-events-none absolute right-3 top-3 z-[700] hidden max-w-xs rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-xl"></div>
+        <div class="absolute right-3 top-3 z-[650] max-w-[22rem] rounded-xl border border-sky-200 bg-white/95 px-4 py-3 text-xs font-semibold leading-5 text-slate-700 shadow-lg backdrop-blur" data-map-help>
+            Klik kanan node untuk mulai garis. Klik kanan map untuk tambah belokan. Klik kanan node tujuan untuk simpan.
+        </div>
+        <div data-map-toast class="pointer-events-none absolute right-3 top-24 z-[700] hidden max-w-xs rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-xl"></div>
     </div>
 
     <style>
@@ -105,7 +108,11 @@
         @media (min-width: 1024px) { .map-full-canvas { height: calc(100dvh - 8rem); } }
         .filter-field { display: grid; gap: .5rem; }
         .map-filter-popover[open] > summary { border-color: #7dd3fc; background: #f0f9ff; color: #075985; }
-        @media (max-width: 640px) { .map-status-badge { left: .75rem; right: .75rem; max-width: none; width: auto; } }
+        @media (max-width: 640px) {
+            .map-status-badge { left: .75rem; right: .75rem; max-width: none; width: auto; }
+            [data-map-help] { left: .75rem; right: .75rem; top: 3.7rem; max-width: none; }
+            [data-map-toast] { left: .75rem; right: .75rem; top: 7.2rem; max-width: none; }
+        }
     </style>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -132,18 +139,24 @@
                 polyline: { color: '#0284c7', weight: 3, opacity: .9 },
                 polygon: { color: '#0f766e', weight: 2, opacity: .9, fillOpacity: .18 },
                 rectangle: { color: '#7c3aed', weight: 2, opacity: .9, fillOpacity: .14 },
+                active: { color: '#dc2626', weight: 4, opacity: .95, dashArray: '8 8' },
             };
 
             const toastEl = document.querySelector('[data-map-toast]');
+            const helpEl = document.querySelector('[data-map-help]');
             let toastTimer = null;
             const showToast = (message, tone = 'success') => {
                 if (!toastEl) return;
                 clearTimeout(toastTimer);
                 toastEl.textContent = message;
-                toastEl.classList.remove('hidden', 'border-rose-200', 'text-rose-800', 'bg-rose-50', 'border-emerald-200', 'text-emerald-800', 'bg-emerald-50');
+                toastEl.classList.remove('hidden', 'border-rose-200', 'text-rose-800', 'bg-rose-50', 'border-emerald-200', 'text-emerald-800', 'bg-emerald-50', 'border-sky-200', 'text-sky-800', 'bg-sky-50');
                 if (tone === 'error') toastEl.classList.add('border-rose-200', 'text-rose-800', 'bg-rose-50');
+                else if (tone === 'info') toastEl.classList.add('border-sky-200', 'text-sky-800', 'bg-sky-50');
                 else toastEl.classList.add('border-emerald-200', 'text-emerald-800', 'bg-emerald-50');
-                toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 2600);
+                toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 3000);
+            };
+            const setHelp = (message) => {
+                if (helpEl) helpEl.textContent = message;
             };
 
             const normalizePoint = (latRaw, lngRaw) => {
@@ -223,7 +236,7 @@
                 if (!Array.isArray(latlngs) || latlngs.length < 2 || Array.isArray(latlngs[0])) return false;
                 const firstSnap = nearestNode(latlngs[0]);
                 const lastSnap = nearestNode(latlngs[latlngs.length - 1]);
-                layer._drawingProps = { ...(layer._drawingProps || {}), source: 'leaflet-draw' };
+                layer._drawingProps = { ...(layer._drawingProps || {}), source: 'right-click-map' };
                 if (firstSnap) {
                     latlngs[0] = L.latLng(firstSnap.point[0], firstSnap.point[1]);
                     layer._drawingProps.source_node_id = firstSnap.node.id;
@@ -259,9 +272,14 @@
                     type: layerTypeOf(layer, fallbackType),
                     name: layer._drawingName || null,
                     geometry: layer.toGeoJSON().geometry,
-                    properties: { source: 'leaflet-draw', ...(layer._drawingProps || {}) },
+                    properties: { source: 'right-click-map', ...(layer._drawingProps || {}) },
                 };
             };
+            const linkStatusLabel = (status) => ({
+                created: 'Data Link baru dibuat',
+                existing: 'Terhubung ke Data Link yang sudah ada',
+                updated: 'Data Link diperbarui',
+            }[status] || 'Belum menjadi Data Link');
             const bindDrawPopup = (layer, type, record = null) => {
                 const props = layer._drawingProps || record?.properties || {};
                 const geometryText = JSON.stringify(layer.toGeoJSON()?.geometry ?? record?.geometry ?? null, null, 2);
@@ -269,11 +287,15 @@
                 const connectText = props.source_node_code || props.target_node_code
                     ? `<div style="margin-top:4px;font-size:12px;color:#0f766e">Nempel node: ${escapeHtml(props.source_node_code || '-')} → ${escapeHtml(props.target_node_code || '-')}</div>`
                     : '';
+                const linkText = props.link_id
+                    ? `<div style="margin-top:4px;font-size:12px;color:#0369a1;font-weight:700">${escapeHtml(linkStatusLabel(props.link_status))} #${escapeHtml(props.link_id)}</div>`
+                    : '';
                 layer.bindPopup(`
                     <div style="min-width:260px">
-                        <div style="font-weight:800;color:#0f172a">Gambar: ${escapeHtml(type)}</div>
+                        <div style="font-weight:800;color:#0f172a">Garis manual</div>
                         <div style="margin-top:4px;font-size:12px;color:#64748b">${escapeHtml(savedText)}</div>
                         ${connectText}
+                        ${linkText}
                         <textarea class="draw-popup-copy" readonly>${escapeHtml(geometryText)}</textarea>
                     </div>
                 `);
@@ -328,39 +350,111 @@
                 const drawControl = new L.Control.Draw({
                     position: 'topleft',
                     edit: { featureGroup: drawnItems, remove: true },
-                    draw: {
-                        marker: true,
-                        polyline: { shapeOptions: drawStyles.polyline },
-                        polygon: { allowIntersection: false, showArea: true, shapeOptions: drawStyles.polygon },
-                        rectangle: { shapeOptions: drawStyles.rectangle },
-                        circle: false,
-                        circlemarker: false,
-                    },
+                    draw: false,
                 });
                 map.addControl(drawControl);
-                map.on(L.Draw.Event.CREATED, async (event) => {
-                    const layer = event.layer;
-                    layer._drawingType = event.layerType || layerTypeOf(layer);
-                    layer._drawingProps = { source: 'leaflet-draw' };
-                    snapPolylineToNodes(layer);
-                    drawnItems.addLayer(layer);
-                    bindDrawPopup(layer, layer._drawingType);
-                    try {
-                        await saveLayer(layer, layer._drawingType);
-                        layer.openPopup?.();
-                        showToast('Gambar berhasil disimpan.');
-                    } catch (error) {
-                        drawnItems.removeLayer(layer);
-                        showToast(error.message, 'error');
-                    }
-                });
                 map.on(L.Draw.Event.EDITED, (event) => event.layers.eachLayer((layer) => updateLayer(layer)
-                    .then(() => showToast('Gambar berhasil diperbarui.'))
+                    .then(() => showToast('Garis berhasil diperbarui.'))
                     .catch((error) => showToast(error.message, 'error'))));
                 map.on(L.Draw.Event.DELETED, (event) => event.layers.eachLayer((layer) => deleteLayer(layer)
-                    .then(() => showToast('Gambar berhasil dihapus.'))
+                    .then(() => showToast('Garis berhasil dihapus.'))
                     .catch((error) => showToast(error.message, 'error'))));
             }
+
+            const activeRoute = {
+                sourceNode: null,
+                points: [],
+                line: null,
+                cursorLatLng: null,
+            };
+            const resetRouteBuilder = () => {
+                if (activeRoute.line) map.removeLayer(activeRoute.line);
+                activeRoute.sourceNode = null;
+                activeRoute.points = [];
+                activeRoute.line = null;
+                activeRoute.cursorLatLng = null;
+                setHelp('Klik kanan node untuk mulai garis. Klik kanan map untuk tambah belokan. Klik kanan node tujuan untuk simpan.');
+            };
+            const routePreviewPoints = () => {
+                const points = [...activeRoute.points];
+                if (activeRoute.cursorLatLng) points.push(activeRoute.cursorLatLng);
+                return points;
+            };
+            const redrawRoutePreview = () => {
+                if (!activeRoute.sourceNode) return;
+                const points = routePreviewPoints();
+                if (!activeRoute.line) {
+                    activeRoute.line = L.polyline(points, drawStyles.active).addTo(map);
+                    return;
+                }
+                activeRoute.line.setLatLngs(points);
+            };
+            const startRouteFromNode = (node) => {
+                const point = pointOfNode(node);
+                if (!point) return;
+                resetRouteBuilder();
+                activeRoute.sourceNode = node;
+                activeRoute.points = [L.latLng(point[0], point[1])];
+                redrawRoutePreview();
+                setHelp(`Mulai dari ${node.code}. Klik kanan map untuk tambah belokan, lalu klik kanan node tujuan untuk simpan.`);
+                showToast(`Mulai garis dari ${node.code}.`, 'info');
+            };
+            const addRouteBend = (latlng) => {
+                if (!activeRoute.sourceNode) return;
+                activeRoute.points.push(latlng);
+                activeRoute.cursorLatLng = null;
+                redrawRoutePreview();
+                showToast('Belokan garis ditambahkan.', 'info');
+            };
+            const finishRouteAtNode = async (targetNode) => {
+                if (!activeRoute.sourceNode) return;
+                if (String(activeRoute.sourceNode.id) === String(targetNode.id)) {
+                    showToast('Node tujuan tidak boleh sama dengan node awal.', 'error');
+                    return;
+                }
+                const targetPoint = pointOfNode(targetNode);
+                if (!targetPoint) return;
+                const finalPoints = [...activeRoute.points, L.latLng(targetPoint[0], targetPoint[1])];
+                const layer = L.polyline(finalPoints, drawStyles.polyline);
+                layer._drawingType = 'polyline';
+                layer._drawingProps = {
+                    source: 'right-click-map',
+                    source_node_id: activeRoute.sourceNode.id,
+                    source_node_code: activeRoute.sourceNode.code,
+                    target_node_id: targetNode.id,
+                    target_node_code: targetNode.code,
+                };
+                drawnItems.addLayer(layer);
+                resetRouteBuilder();
+                bindDrawPopup(layer, 'polyline');
+                try {
+                    await saveLayer(layer, 'polyline');
+                    layer.openPopup?.();
+                    showToast(`Garis ${layer._drawingProps.source_node_code} → ${layer._drawingProps.target_node_code} berhasil disimpan.`);
+                } catch (error) {
+                    drawnItems.removeLayer(layer);
+                    showToast(error.message, 'error');
+                }
+            };
+
+            map.on('contextmenu', (event) => {
+                if (!activeRoute.sourceNode) {
+                    showToast('Klik kanan pada node untuk mulai membuat garis.', 'info');
+                    return;
+                }
+                addRouteBend(event.latlng);
+            });
+            map.on('mousemove', (event) => {
+                if (!activeRoute.sourceNode) return;
+                activeRoute.cursorLatLng = event.latlng;
+                redrawRoutePreview();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && activeRoute.sourceNode) {
+                    resetRouteBuilder();
+                    showToast('Pembuatan garis dibatalkan.', 'info');
+                }
+            });
 
             const refreshNetworkLinks = () => {
                 networkLines.forEach(({ sourceId, targetId, line }) => {
@@ -370,20 +464,6 @@
                     const targetPoint = target ? pointOfNode(target) : null;
                     if (sourcePoint && targetPoint) line.setLatLngs([sourcePoint, targetPoint]);
                 });
-            };
-            const updateNodeCoordinates = async (node, marker, oldPoint) => {
-                const position = marker.getLatLng();
-                const payload = { latitude: position.lat, longitude: position.lng };
-                const response = await fetch(node.coordinate_url, { method: 'PATCH', headers: headers(), body: JSON.stringify(payload) });
-                if (!response.ok) throw new Error('Gagal menyimpan posisi node.');
-                const data = await response.json();
-                node.latitude = data.latitude;
-                node.longitude = data.longitude;
-                marker.setLatLng([data.latitude, data.longitude]);
-                refreshNetworkLinks();
-                refreshSnappedDrawings();
-                bindNodePopup(marker, node);
-                showToast('Posisi node berhasil disimpan.');
             };
             const bindNodePopup = (marker, node) => {
                 const point = pointOfNode(node) || marker.getLatLng();
@@ -396,7 +476,7 @@
                         <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Nama:</span> ${escapeHtml(node.name || '-')}</div>
                         <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Jenis:</span> ${escapeHtml(node.type || '-')}</div>
                         <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Koordinat:</span> ${escapeHtml(point[0] ?? point.lat)}, ${escapeHtml(point[1] ?? point.lng)}</div>
-                        <div style="margin-top:6px;font-size:12px;color:#0f766e;font-weight:700">Titik ini bisa ditarik. Ujung garis yang dekat node akan menempel otomatis.</div>
+                        <div style="margin-top:6px;font-size:12px;color:#0f766e;font-weight:700">Node dikunci. Pakai klik kanan node untuk membuat garis.</div>
                         <div style="margin-top:8px"><a href="${mapsUrl}" target="_blank" rel="noreferrer" style="font-weight:700;color:#0369a1">Buka di Google Maps</a></div>
                         <div style="margin-top:8px;font-size:13px;color:#334155"><span style="color:#64748b">Alamat:</span> ${escapeHtml(node.address || '-')}</div>
                         <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Catatan:</span> ${escapeHtml(node.notes || '-')}</div>${photo}
@@ -408,14 +488,13 @@
                 const point = pointOfNode(node);
                 if (!point) return;
                 bounds.push(point);
-                const marker = L.marker(point, { icon: markerIcon(node), draggable: true }).addTo(map);
+                const marker = L.marker(point, { icon: markerIcon(node), draggable: false }).addTo(map);
                 bindNodePopup(marker, node);
-                marker.on('dragstart', () => { marker._oldPoint = pointOfNode(node); marker.closePopup(); });
-                marker.on('dragend', () => updateNodeCoordinates(node, marker, marker._oldPoint)
-                    .catch((error) => {
-                        if (marker._oldPoint) marker.setLatLng(marker._oldPoint);
-                        showToast(error.message, 'error');
-                    }));
+                marker.on('contextmenu', (event) => {
+                    L.DomEvent.stop(event);
+                    if (!activeRoute.sourceNode) startRouteFromNode(node);
+                    else finishRouteAtNode(node);
+                });
                 markersById.set(String(node.id), marker);
             });
 

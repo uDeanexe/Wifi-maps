@@ -95,18 +95,20 @@
             </header>
             <div class="p-4 sm:p-6 lg:p-8">
                 @if (session('status'))
-                    <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{{ session('status') }}</div>
+                    <div data-flash-toast data-toast-type="success" data-toast-message="{{ session('status') }}" hidden></div>
                 @endif
-                @if ($errors->any())
-                    <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                        <div class="font-bold">Terjadi kesalahan:</div>
-                        <ul class="mt-2 list-disc pl-5">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
+                @if (session('success'))
+                    <div data-flash-toast data-toast-type="success" data-toast-message="{{ session('success') }}" hidden></div>
                 @endif
+                @if (session('error'))
+                    <div data-flash-toast data-toast-type="danger" data-toast-message="{{ session('error') }}" hidden></div>
+                @endif
+                @if (session('warning'))
+                    <div data-flash-toast data-toast-type="info" data-toast-message="{{ session('warning') }}" hidden></div>
+                @endif
+                @foreach ($errors->all() as $error)
+                    <div data-flash-toast data-toast-type="danger" data-toast-message="{{ $error }}" hidden></div>
+                @endforeach
                 {{ $slot }}
             </div>
         </main>

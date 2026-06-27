@@ -5,6 +5,14 @@ const sidebar = document.querySelector('[data-sidebar]');
 const sidebarBackdrop = document.querySelector('[data-sidebar-backdrop]');
 const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
 
+// Force the browser context menu off inside the Leaflet map so our custom
+// right-click menu always gets the event first.
+document.addEventListener('contextmenu', (event) => {
+    if (event.target instanceof Element && event.target.closest('#network-map')) {
+        event.preventDefault();
+    }
+}, true);
+
 function notifyLayoutChanged() {
     window.dispatchEvent(new Event('layout:changed'));
     // Sidebar open/close uses transitions; invalidate a couple times to be safe.

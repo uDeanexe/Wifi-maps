@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MappingController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 
@@ -32,6 +33,8 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::get('/users', [MappingController::class, 'users'])->name('users.index');
     Route::post('/users', [MappingController::class, 'storeUser'])->name('users.store');
     Route::put('/users/{user}', [MappingController::class, 'updateUser'])->name('users.update');
+    Route::patch('/users/{user}/active', [UserManagementController::class, 'toggleActive'])->name('users.active');
+    Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->name('users.destroy');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/topology.pdf', [ReportController::class, 'topologyPdf'])->name('reports.topology.pdf');

@@ -115,6 +115,22 @@
             top: 52px;
         }
 
+        #network-map .leaflet-draw-toolbar a {
+            box-sizing: content-box;
+        }
+
+        .draw-popup-copy {
+            margin-top: 0.5rem;
+            width: 260px;
+            min-height: 74px;
+            resize: vertical;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #334155;
+        }
+
         details > summary::-webkit-details-marker {
             display: none;
         }
@@ -153,7 +169,9 @@
     </style>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
     <script>
         (() => {
             const nodes = @json($mapNodes);
@@ -256,6 +274,71 @@
             const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
             }[char]));
+
+            const drawnItems = new L.FeatureGroup().addTo(map);
+            const bindDrawPopup = (layer, type) => {
+                const geometry = layer.toGeoJSON()?.geometry ?? null;
+                const geometryText = JSON.stringify(geometry, null, 2);
+                layer.bindPopup(`
+                    <div style="min-width:260px">
+                        <div style="font-weight:800;color:#0f172a">Gambar manual: ${escapeHtml(type)}</div>
+                        <div style="margin-top:4px;font-size:12px;color:#64748b">Belum disimpan ke database. Salin GeoJSON ini jika perlu arsip.</div>
+                        <textarea class="draw-popup-copy" readonly>${escapeHtml(geometryText)}</textarea>
+                    </div>
+                `);
+            };
+
+            if (L.Control?.Draw) {
+                const drawControl = new L.Control.Draw({
+                    position: 'topleft',
+                    edit: {
+                        featureGroup: drawnItems,
+                        remove: true,
+                    },
+                    draw: {
+                        marker: true,
+                        polyline: {
+                            shapeOptions: {
+                                color: '#0284c7',
+                                weight: 3,
+                                opacity: 0.9,
+                            },
+                        },
+                        polygon: {
+                            allowIntersection: false,
+                            showArea: true,
+                            shapeOptions: {
+                                color: '#0f766e',
+                                weight: 2,
+                                opacity: 0.9,
+                                fillOpacity: 0.18,
+                            },
+                        },
+                        rectangle: {
+                            shapeOptions: {
+                                color: '#7c3aed',
+                                weight: 2,
+                                opacity: 0.9,
+                                fillOpacity: 0.14,
+                            },
+                        },
+                        circle: false,
+                        circlemarker: false,
+                    },
+                });
+                map.addControl(drawControl);
+
+                map.on(L.Draw.Event.CREATED, (event) => {
+                    const layer = event.layer;
+                    drawnItems.addLayer(layer);
+                    bindDrawPopup(layer, event.layerType || 'layer');
+                    layer.openPopup?.();
+                });
+
+                map.on(L.Draw.Event.EDITED, (event) => {
+                    event.layers.eachLayer((layer) => bindDrawPopup(layer, 'edited'));
+                });
+            }
 
             mappedNodes.forEach((node) => {
                 const point = normalizePoint(node.latitude, node.longitude);

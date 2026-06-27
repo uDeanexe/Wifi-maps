@@ -25,6 +25,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::get('/nodes', [MappingController::class, 'nodes'])->name('nodes.index');
     Route::post('/nodes', [MappingController::class, 'storeNode'])->name('nodes.store');
     Route::put('/nodes/{node}', [MappingController::class, 'updateNode'])->name('nodes.update');
+    Route::patch('/nodes/{node}/coordinates', [MappingController::class, 'updateNodeCoordinates'])->name('nodes.coordinates');
     Route::delete('/nodes/{node}', [MappingController::class, 'deleteNode'])->name('nodes.destroy');
 
     Route::get('/links', [MappingController::class, 'links'])->name('links.index');

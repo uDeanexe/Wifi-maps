@@ -10,6 +10,31 @@
     }
 }
 
+.cable-save-dialog {
+    position: fixed !important;
+    inset: 50% auto auto 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    width: min(430px, calc(100vw - 2rem)) !important;
+    max-height: min(86vh, 560px) !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    box-shadow: 0 30px 90px rgb(15 23 42 / 32%) !important;
+    z-index: 2147483647 !important;
+}
+
+.cable-save-dialog::backdrop {
+    background: rgb(15 23 42 / 55%) !important;
+    backdrop-filter: blur(2px) !important;
+}
+
+.cable-save-card {
+    max-height: min(86vh, 560px) !important;
+    overflow-y: auto !important;
+}
+
 @media (max-width: 768px) {
     [data-map-panel] {
         left: .75rem !important;
@@ -76,6 +101,12 @@
         right: .75rem !important;
         top: 7.5rem !important;
         max-width: none !important;
+    }
+
+    .cable-save-dialog {
+        width: min(420px, calc(100vw - 1.25rem)) !important;
+        max-height: calc(100vh - 1.25rem) !important;
+        border-radius: 16px !important;
     }
 }
 

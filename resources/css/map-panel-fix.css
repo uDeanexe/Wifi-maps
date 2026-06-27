@@ -1,0 +1,86 @@
+@media (min-width: 769px) {
+    [data-map-panel] {
+        right: 4.25rem !important;
+        width: min(18rem, calc(100% - 5.5rem)) !important;
+    }
+
+    #network-map .leaflet-top.leaflet-right {
+        top: 96px !important;
+        right: 8px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    [data-map-panel] {
+        left: .75rem !important;
+        right: auto !important;
+        top: .75rem !important;
+        width: min(16.5rem, calc(100vw - 5.25rem)) !important;
+        padding: .55rem .65rem !important;
+        border-radius: .9rem !important;
+        box-shadow: 0 12px 34px rgb(15 23 42 / 18%) !important;
+    }
+
+    [data-map-panel] > div:first-child {
+        gap: .5rem !important;
+    }
+
+    [data-map-panel] [data-draw-mode-label] {
+        font-size: .78rem !important;
+        line-height: 1.05rem !important;
+    }
+
+    [data-map-panel] [data-map-help] {
+        display: none !important;
+    }
+
+    [data-map-panel] label {
+        padding: .28rem .4rem !important;
+        gap: .35rem !important;
+    }
+
+    [data-map-panel] input[type="color"] {
+        width: 1.65rem !important;
+        height: 1.35rem !important;
+    }
+
+    [data-map-panel] [data-bend-count],
+    [data-map-panel] [data-route-undo],
+    [data-map-panel] [data-route-cancel] {
+        padding: .25rem .45rem !important;
+        font-size: .64rem !important;
+        line-height: .9rem !important;
+    }
+
+    .map-status-badge {
+        left: .75rem !important;
+        top: 4.35rem !important;
+        width: auto !important;
+        max-width: calc(100vw - 1.5rem) !important;
+        padding: .45rem .65rem !important;
+        font-size: .68rem !important;
+    }
+
+    #network-map .leaflet-top.leaflet-left {
+        top: 7.4rem !important;
+        left: .75rem !important;
+    }
+
+    #network-map .leaflet-top.leaflet-right {
+        top: .75rem !important;
+        right: .75rem !important;
+    }
+
+    [data-map-toast] {
+        left: .75rem !important;
+        right: .75rem !important;
+        top: 7.5rem !important;
+        max-width: none !important;
+    }
+}
+
+@media (max-width: 380px) {
+    [data-map-panel] {
+        width: min(14.5rem, calc(100vw - 4.8rem)) !important;
+    }
+}

@@ -99,25 +99,42 @@
                 </div>
             </header>
             <div class="p-4 sm:p-6 lg:p-8">
-                @if (session('status'))
-                    <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ session('status') }}</div>
-                @endif
-                @if ($errors->any())
-                    <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $errors->first() }}</div>
-                @endif
-                @if (session('import_errors'))
-                    <details class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        <summary class="cursor-pointer font-bold">{{ count(session('import_errors')) }} baris import dilewati — lihat detail</summary>
-                        <ul class="mt-3 list-disc space-y-1 pl-5">
-                            @foreach (session('import_errors') as $importError)
-                                <li>{{ $importError }}</li>
-                            @endforeach
-                        </ul>
-                    </details>
-                @endif
                 {{ $slot }}
             </div>
         </main>
     </div>
+
+    @php
+        $toastMessages = [];
+        if (session('status')) {
+            $toastMessages[] = ['tone' => 'success', 'text' => session('status')];
+        }
+        if ($errors->any()) {
+            $toastMessages[] = ['tone' => 'error', 'text' => $errors->first()];
+        }
+        if (session('import_errors')) {
+            $toastMessages[] = ['tone' => 'warning', 'text' => count(session('import_errors')).' baris import dilewati. Cek file dan format CSV.'];
+        }
+    @endphp
+
+    @if (! empty($toastMessages))
+        <div class="fixed right-4 top-20 z-[1600] grid w-[min(24rem,calc(100vw-2rem))] gap-3" data-page-toasts>
+            @foreach ($toastMessages as $toast)
+                <div class="rounded-xl border px-4 py-3 text-sm font-semibold shadow-xl backdrop-blur {{ $toast['tone'] === 'success' ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800' : ($toast['tone'] === 'warning' ? 'border-amber-200 bg-amber-50/95 text-amber-900' : 'border-rose-200 bg-rose-50/95 text-rose-800') }}" data-page-toast>
+                    {{ $toast['text'] }}
+                </div>
+            @endforeach
+        </div>
+        <script>
+            setTimeout(() => {
+                document.querySelectorAll('[data-page-toast]').forEach((toast) => {
+                    toast.style.transition = 'opacity .25s ease, transform .25s ease';
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-6px)';
+                    setTimeout(() => toast.remove(), 280);
+                });
+            }, 3200);
+        </script>
+    @endif
 </body>
 </html>

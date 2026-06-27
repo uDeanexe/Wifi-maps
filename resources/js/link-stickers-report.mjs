@@ -29,6 +29,7 @@ const stream = fs.createWriteStream(outputPath);
 doc.pipe(stream);
 
 const page = { width: 595.28, height: 841.89, margin: 26 };
+const brandName = 'JONUSA MAPS';
 const colors = {
   ink: '#0f172a',
   muted: '#64748b',
@@ -88,7 +89,7 @@ function qrValue(link) {
   const name = cableName(link);
   const cableType = normalizedCableType(link) || '-';
   const rows = [
-    'WIFI MAPS - DATA LINK',
+    `${brandName} - DATA LINK`,
     `ID Link: ${val(link?.id)}`,
     `Nama Kabel: ${name}`,
     `Dari Node: ${val(link?.source_code)}`,
@@ -152,7 +153,7 @@ async function drawSticker(link, x, y, width, height, qrCache) {
   doc.roundedRect(textX, footerY, textW, 18, 6).fill(colors.bluePale);
   safeText(`ID ${val(link?.id)}  •  Scan QR`, textX + 8, footerY + 5.2, textW - 16, 'Helvetica-Bold', 7.4, colors.blueDark, 9, { align: 'center' });
 
-  safeText('WIFI MAPS', qrX - 4, y + height - pad - 9, qrSize + 8, 'Helvetica-Bold', 5.8, colors.faint, 8, { align: 'center' });
+  safeText(brandName, qrX - 4, y + height - pad - 9, qrSize + 8, 'Helvetica-Bold', 5.8, colors.faint, 8, { align: 'center' });
 }
 
 function drawHeader(copy, copies) {

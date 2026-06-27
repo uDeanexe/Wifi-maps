@@ -7,6 +7,7 @@
     <link rel="icon" href="/favicon.ico">
     <link rel="apple-touch-icon" href="/assets/img/jonusa.png">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="stylesheet" href="/assets/css/map-panel-fix.css?v=20260627">
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
     <div class="flex min-h-screen bg-slate-50 text-slate-900">
@@ -78,63 +79,38 @@
                 </div>
                 <div class="ml-auto flex items-center gap-4">
                     <div class="flex items-center gap-3">
-                        <div class="hidden min-w-0 text-right sm:block">
-                            <div class="truncate text-sm font-semibold text-slate-900">{{ auth()->user()->name }}</div>
-                            <div class="truncate text-xs text-slate-500">{{ auth()->user()->role }}</div>
+                        <div class="hidden text-right sm:block">
+                            <div class="text-sm font-bold text-slate-900">{{ auth()->user()->name }}</div>
+                            <div class="text-xs text-slate-500">{{ auth()->user()->role }}</div>
                         </div>
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-100 font-bold text-sky-700 shadow-sm">
-                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                        </div>
+                        <div class="grid h-10 w-10 place-items-center rounded-full border border-sky-200 bg-sky-100 text-sm font-bold text-sky-700">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</div>
                     </div>
                     <form method="post" action="{{ route('logout') }}">
                         @csrf
-                        <button class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-sm transition-colors hover:bg-slate-800" title="Logout" aria-label="Logout">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                                <polyline points="16 17 21 12 16 7" />
-                                <line x1="21" y1="12" x2="9" y2="12" />
-                            </svg>
+                        <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800" title="Logout">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
                         </button>
                     </form>
                 </div>
             </header>
             <div class="p-4 sm:p-6 lg:p-8">
+                @if (session('status'))
+                    <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{{ session('status') }}</div>
+                @endif
+                @if ($errors->any())
+                    <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                        <div class="font-bold">Terjadi kesalahan:</div>
+                        <ul class="mt-2 list-disc pl-5">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 {{ $slot }}
             </div>
         </main>
     </div>
-
-    @php
-        $toastMessages = [];
-        if (session('status')) {
-            $toastMessages[] = ['tone' => 'success', 'text' => session('status')];
-        }
-        if ($errors->any()) {
-            $toastMessages[] = ['tone' => 'error', 'text' => $errors->first()];
-        }
-        if (session('import_errors')) {
-            $toastMessages[] = ['tone' => 'warning', 'text' => count(session('import_errors')).' baris import dilewati. Cek file dan format CSV.'];
-        }
-    @endphp
-
-    @if (! empty($toastMessages))
-        <div class="fixed right-4 top-20 z-[1600] grid w-[min(24rem,calc(100vw-2rem))] gap-3" data-page-toasts>
-            @foreach ($toastMessages as $toast)
-                <div class="rounded-xl border px-4 py-3 text-sm font-semibold shadow-xl backdrop-blur {{ $toast['tone'] === 'success' ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800' : ($toast['tone'] === 'warning' ? 'border-amber-200 bg-amber-50/95 text-amber-900' : 'border-rose-200 bg-rose-50/95 text-rose-800') }}" data-page-toast>
-                    {{ $toast['text'] }}
-                </div>
-            @endforeach
-        </div>
-        <script>
-            setTimeout(() => {
-                document.querySelectorAll('[data-page-toast]').forEach((toast) => {
-                    toast.style.transition = 'opacity .25s ease, transform .25s ease';
-                    toast.style.opacity = '0';
-                    toast.style.transform = 'translateY(-6px)';
-                    setTimeout(() => toast.remove(), 280);
-                });
-            }, 3200);
-        </script>
-    @endif
+    <div class="ui-toast-host" data-toast-host></div>
 </body>
 </html>

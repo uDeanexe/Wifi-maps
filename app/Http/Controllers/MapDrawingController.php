@@ -42,7 +42,15 @@ class MapDrawingController extends Controller
 
     public function destroy(MapDrawing $drawing): JsonResponse
     {
+        $linkId = (int) ($drawing->properties['link_id'] ?? 0);
+
         $drawing->delete();
+
+        if ($linkId > 0) {
+            Link::whereKey($linkId)
+                ->where('cable_type', 'Manual Drawing')
+                ->delete();
+        }
 
         return response()->json(['message' => 'Gambar berhasil dihapus.']);
     }

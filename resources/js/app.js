@@ -13,6 +13,39 @@ document.addEventListener('contextmenu', (event) => {
     }
 }, true);
 
+// While the user is drawing a cable route, the temporary preview line should
+// not block clicks/right-clicks on nodes underneath it. This lets users keep
+// clicking nodes even when the cable preview passes over the node marker.
+const mapDrawingStyle = document.createElement('style');
+mapDrawingStyle.textContent = `
+    #network-map.is-route-drawing .leaflet-overlay-pane .leaflet-interactive {
+        pointer-events: none !important;
+    }
+    #network-map.is-route-drawing {
+        cursor: crosshair;
+    }
+`;
+document.head.appendChild(mapDrawingStyle);
+
+function syncRouteDrawingClass() {
+    const mapEl = document.querySelector('#network-map');
+    const label = document.querySelector('[data-draw-mode-label]');
+    const isDrawing = (label?.textContent || '').toLocaleLowerCase('id-ID').includes('membuat garis');
+    mapEl?.classList.toggle('is-route-drawing', isDrawing);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    syncRouteDrawingClass();
+    const label = document.querySelector('[data-draw-mode-label]');
+    if (label) {
+        new MutationObserver(syncRouteDrawingClass).observe(label, {
+            childList: true,
+            characterData: true,
+            subtree: true,
+        });
+    }
+});
+
 function notifyLayoutChanged() {
     window.dispatchEvent(new Event('layout:changed'));
     // Sidebar open/close uses transitions; invalidate a couple times to be safe.

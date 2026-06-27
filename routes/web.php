@@ -17,6 +17,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
     Route::get('/', [MappingController::class, 'dashboard'])->name('dashboard');
     Route::get('/map', [MappingController::class, 'map'])->name('map');
+    Route::get('/map/drawings', [MapDrawingController::class, 'index'])->name('map.drawings.index');
     Route::post('/map/drawings', [MapDrawingController::class, 'store'])->name('map.drawings.store');
     Route::put('/map/drawings/{drawing}', [MapDrawingController::class, 'update'])->name('map.drawings.update');
     Route::delete('/map/drawings/{drawing}', [MapDrawingController::class, 'destroy'])->name('map.drawings.destroy');

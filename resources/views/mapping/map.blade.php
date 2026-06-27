@@ -105,15 +105,19 @@
                 </label>
                 <button type="button" class="hidden rounded-lg bg-rose-600 px-3 py-2 text-xs font-black text-white shadow-sm hover:bg-rose-700" data-route-cancel>Batal</button>
             </div>
-            <div class="mt-2 text-xs text-slate-500" data-map-help>Klik kanan node atau map untuk membuka menu.</div>
+            <div class="mt-2 text-xs text-slate-500" data-map-help>Klik kanan node, garis, atau area map untuk membuka menu.</div>
         </div>
 
-        <div data-context-menu class="absolute z-[900] hidden min-w-56 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-2xl">
+        <div data-context-menu class="absolute z-[900] hidden min-w-60 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-2xl">
             <div class="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-500" data-context-title>Menu</div>
-            <button type="button" class="context-menu-item" data-context-action="start">Mulai garis dari node ini</button>
+            <button type="button" class="context-menu-item" data-context-action="info">Info</button>
+            <button type="button" class="context-menu-item" data-context-action="start">Membuat garis dari node ini</button>
             <button type="button" class="context-menu-item" data-context-action="finish">Selesai di node ini</button>
             <button type="button" class="context-menu-item" data-context-action="bend">Tambah belokan di sini</button>
-            <button type="button" class="context-menu-item text-rose-700" data-context-action="cancel">Batalkan garis</button>
+            <button type="button" class="context-menu-item" data-context-action="edit">Edit garis</button>
+            <button type="button" class="context-menu-item" data-context-action="save-edit">Simpan edit</button>
+            <button type="button" class="context-menu-item text-rose-700" data-context-action="delete">Delete garis</button>
+            <button type="button" class="context-menu-item text-rose-700" data-context-action="cancel">Batalkan mode garis</button>
         </div>
 
         <div data-map-toast class="pointer-events-none absolute right-3 top-32 z-[700] hidden max-w-xs rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-xl"></div>
@@ -170,16 +174,10 @@
             const contextButtons = Array.from(document.querySelectorAll('[data-context-action]'));
             let toastTimer = null;
             let contextTarget = null;
+            let activeEditLayer = null;
 
             const currentColor = () => lineColorInput?.value || defaultLineColor;
-            const polylineStyle = (color = currentColor(), active = false) => ({
-                color,
-                weight: active ? 4 : 3,
-                opacity: active ? .95 : .9,
-                dashArray: active ? '8 8' : null,
-                lineCap: 'round',
-                lineJoin: 'round',
-            });
+            const polylineStyle = (color = currentColor(), active = false) => ({ color, weight: active ? 4 : 3, opacity: active ? .95 : .9, dashArray: active ? '8 8' : null, lineCap: 'round', lineJoin: 'round' });
             const storedStyle = (record) => {
                 const color = record?.properties?.color || defaultLineColor;
                 if (record?.type === 'polygon') return { color, weight: 2, opacity: .9, fillOpacity: .18 };
@@ -198,16 +196,14 @@
             };
             const setMode = (mode, message = null) => {
                 const drawing = mode === 'drawing';
-                if (modeLabelEl) modeLabelEl.textContent = drawing ? 'Mode membuat garis' : 'Mode normal';
-                if (helpEl) helpEl.textContent = message || (drawing ? 'Klik kanan map untuk belokan, klik kanan node tujuan untuk simpan.' : 'Klik kanan node atau map untuk membuka menu.');
-                cancelButton?.classList.toggle('hidden', !drawing);
-                panelEl?.classList.toggle('border-sky-300', drawing);
-                panelEl?.classList.toggle('bg-sky-50/95', drawing);
+                const editing = mode === 'editing';
+                if (modeLabelEl) modeLabelEl.textContent = editing ? 'Mode edit garis' : (drawing ? 'Mode membuat garis' : 'Mode normal');
+                if (helpEl) helpEl.textContent = message || (editing ? 'Geser titik garis, lalu klik kanan garis dan pilih Simpan edit.' : (drawing ? 'Klik kanan map untuk belokan, klik kanan node tujuan untuk simpan.' : 'Klik kanan node, garis, atau area map untuk membuka menu.'));
+                cancelButton?.classList.toggle('hidden', !(drawing || editing));
+                panelEl?.classList.toggle('border-sky-300', drawing || editing);
+                panelEl?.classList.toggle('bg-sky-50/95', drawing || editing);
             };
-            const hideContextMenu = () => {
-                contextMenu?.classList.add('hidden');
-                contextTarget = null;
-            };
+            const hideContextMenu = () => { contextMenu?.classList.add('hidden'); contextTarget = null; };
 
             const normalizePoint = (latRaw, lngRaw) => {
                 const lat = Number(latRaw);
@@ -289,32 +285,21 @@
                 geometry: layer.toGeoJSON().geometry,
                 properties: { source: 'context-menu-map', color: layer._drawingProps?.color || currentColor(), ...(layer._drawingProps || {}) },
             });
-            const linkStatusLabel = (status) => ({
-                created: 'Data Link baru dibuat',
-                existing: 'Terhubung ke Data Link yang sudah ada',
-                updated: 'Data Link diperbarui',
-            }[status] || 'Belum menjadi Data Link');
+            const linkStatusLabel = (status) => ({ created: 'Data Link baru dibuat', existing: 'Terhubung ke Data Link yang sudah ada', updated: 'Data Link diperbarui' }[status] || 'Belum menjadi Data Link');
             const bindDrawPopup = (layer, type, record = null) => {
                 const props = layer._drawingProps || record?.properties || {};
                 const geometryText = JSON.stringify(layer.toGeoJSON()?.geometry ?? record?.geometry ?? null, null, 2);
                 const savedText = layer._drawingId ? `Tersimpan #${layer._drawingId}` : 'Belum tersimpan';
-                const connectText = props.source_node_code || props.target_node_code
-                    ? `<div style="margin-top:4px;font-size:12px;color:#0f766e">Nempel node: ${escapeHtml(props.source_node_code || '-')} → ${escapeHtml(props.target_node_code || '-')}</div>`
-                    : '';
-                const linkText = props.link_id
-                    ? `<div style="margin-top:4px;font-size:12px;color:#0369a1;font-weight:700">${escapeHtml(linkStatusLabel(props.link_status))} #${escapeHtml(props.link_id)}</div>`
-                    : '';
+                const connectText = props.source_node_code || props.target_node_code ? `<div style="margin-top:4px;font-size:12px;color:#0f766e">Nempel node: ${escapeHtml(props.source_node_code || '-')} → ${escapeHtml(props.target_node_code || '-')}</div>` : '';
+                const linkText = props.link_id ? `<div style="margin-top:4px;font-size:12px;color:#0369a1;font-weight:700">${escapeHtml(linkStatusLabel(props.link_status))} #${escapeHtml(props.link_id)}</div>` : '';
                 const colorText = props.color ? `<div style="margin-top:4px;font-size:12px;color:#475569">Warna: <span style="display:inline-block;width:14px;height:14px;border-radius:999px;background:${escapeHtml(props.color)};vertical-align:-2px;border:1px solid #cbd5e1"></span> ${escapeHtml(props.color)}</div>` : '';
-                layer.bindPopup(`
-                    <div style="min-width:260px">
-                        <div style="font-weight:800;color:#0f172a">Garis manual</div>
-                        <div style="margin-top:4px;font-size:12px;color:#64748b">${escapeHtml(savedText)}</div>
-                        ${connectText}
-                        ${linkText}
-                        ${colorText}
-                        <textarea class="draw-popup-copy" readonly>${escapeHtml(geometryText)}</textarea>
-                    </div>
-                `);
+                layer.bindPopup(`<div style="min-width:260px"><div style="font-weight:800;color:#0f172a">Garis manual</div><div style="margin-top:4px;font-size:12px;color:#64748b">${escapeHtml(savedText)}</div>${connectText}${linkText}${colorText}<textarea class="draw-popup-copy" readonly>${escapeHtml(geometryText)}</textarea></div>`);
+            };
+            const attachDrawingContext = (layer) => {
+                layer.on('contextmenu', (event) => {
+                    L.DomEvent.stop(event);
+                    openContextMenu(event, { type: 'drawing', layer, latlng: event.latlng });
+                });
             };
             const saveLayer = async (layer, fallbackType) => {
                 const response = await fetch(drawApi.store, { method: 'POST', headers: headers(), body: JSON.stringify(payloadFor(layer, fallbackType)) });
@@ -325,6 +310,7 @@
                 layer._drawingProps = data.properties || layer._drawingProps || {};
                 if (layer.setStyle) layer.setStyle(polylineStyle(layer._drawingProps.color || currentColor(), false));
                 bindDrawPopup(layer, data.type, data);
+                attachDrawingContext(layer);
                 return data;
             };
             const updateLayer = async (layer) => {
@@ -335,12 +321,41 @@
                 layer._drawingProps = data.properties || layer._drawingProps || {};
                 if (layer.setStyle) layer.setStyle(polylineStyle(layer._drawingProps.color || currentColor(), false));
                 bindDrawPopup(layer, data.type, data);
+                attachDrawingContext(layer);
                 return data;
             };
             const deleteLayer = async (layer) => {
                 if (!layer._drawingId) return;
                 const response = await fetch(drawUrl(layer._drawingId), { method: 'DELETE', headers: headers() });
                 if (!response.ok) throw new Error('Gagal menghapus gambar.');
+            };
+            const enableEditLayer = (layer) => {
+                if (!layer?.editing?.enable) {
+                    showToast('Garis ini belum mendukung edit titik.', 'error');
+                    return;
+                }
+                if (activeEditLayer && activeEditLayer !== layer) activeEditLayer.editing?.disable?.();
+                activeEditLayer = layer;
+                layer.editing.enable();
+                setMode('editing', 'Geser titik garis, lalu klik kanan garis dan pilih Simpan edit.');
+                showToast('Mode edit garis aktif.', 'info');
+            };
+            const saveEditLayer = async (layer = activeEditLayer) => {
+                if (!layer) return;
+                layer.editing?.disable?.();
+                await updateLayer(layer);
+                activeEditLayer = null;
+                setMode('normal');
+                showToast('Edit garis berhasil disimpan.');
+            };
+            const removeDrawingLayer = async (layer) => {
+                if (!layer) return;
+                if (!confirm('Delete garis ini?')) return;
+                await deleteLayer(layer);
+                drawnItems.removeLayer(layer);
+                if (activeEditLayer === layer) activeEditLayer = null;
+                setMode('normal');
+                showToast('Garis berhasil dihapus.');
             };
             const addStoredDrawing = (record) => {
                 if (!record?.geometry) return;
@@ -355,28 +370,18 @@
                         layer._drawingProps = record.properties || {};
                         drawnItems.addLayer(layer);
                         bindDrawPopup(layer, record.type, record);
+                        attachDrawingContext(layer);
                     },
                 });
             };
 
-            fetch(drawApi.index, { headers: { 'Accept': 'application/json' } })
-                .then((response) => response.ok ? response.json() : Promise.reject())
-                .then((payload) => (payload.data || []).forEach(addStoredDrawing))
-                .catch(() => console.warn('Gagal memuat gambar manual.'));
+            fetch(drawApi.index, { headers: { 'Accept': 'application/json' } }).then((response) => response.ok ? response.json() : Promise.reject()).then((payload) => (payload.data || []).forEach(addStoredDrawing)).catch(() => console.warn('Gagal memuat gambar manual.'));
 
             if (L.Control?.Draw) {
-                const drawControl = new L.Control.Draw({
-                    position: 'topleft',
-                    edit: { featureGroup: drawnItems, remove: true },
-                    draw: false,
-                });
+                const drawControl = new L.Control.Draw({ position: 'topleft', edit: { featureGroup: drawnItems, remove: true }, draw: false });
                 map.addControl(drawControl);
-                map.on(L.Draw.Event.EDITED, (event) => event.layers.eachLayer((layer) => updateLayer(layer)
-                    .then(() => showToast('Garis berhasil diperbarui.'))
-                    .catch((error) => showToast(error.message, 'error'))));
-                map.on(L.Draw.Event.DELETED, (event) => event.layers.eachLayer((layer) => deleteLayer(layer)
-                    .then(() => showToast('Garis berhasil dihapus.'))
-                    .catch((error) => showToast(error.message, 'error'))));
+                map.on(L.Draw.Event.EDITED, (event) => event.layers.eachLayer((layer) => updateLayer(layer).then(() => showToast('Garis berhasil diperbarui.')).catch((error) => showToast(error.message, 'error'))));
+                map.on(L.Draw.Event.DELETED, (event) => event.layers.eachLayer((layer) => deleteLayer(layer).then(() => showToast('Garis berhasil dihapus.')).catch((error) => showToast(error.message, 'error'))));
             }
 
             const activeRoute = { sourceNode: null, points: [], line: null, cursorLatLng: null };
@@ -422,27 +427,18 @@
             };
             const finishRouteAtNode = async (targetNode) => {
                 if (!activeRoute.sourceNode) return;
-                if (String(activeRoute.sourceNode.id) === String(targetNode.id)) {
-                    showToast('Node tujuan tidak boleh sama dengan node awal.', 'error');
-                    return;
-                }
+                if (String(activeRoute.sourceNode.id) === String(targetNode.id)) { showToast('Node tujuan tidak boleh sama dengan node awal.', 'error'); return; }
                 const targetPoint = pointOfNode(targetNode);
                 if (!targetPoint) return;
                 const color = currentColor();
                 const finalPoints = [...activeRoute.points, L.latLng(targetPoint[0], targetPoint[1])];
                 const layer = L.polyline(finalPoints, polylineStyle(color, false));
                 layer._drawingType = 'polyline';
-                layer._drawingProps = {
-                    source: 'context-menu-map',
-                    color,
-                    source_node_id: activeRoute.sourceNode.id,
-                    source_node_code: activeRoute.sourceNode.code,
-                    target_node_id: targetNode.id,
-                    target_node_code: targetNode.code,
-                };
+                layer._drawingProps = { source: 'context-menu-map', color, source_node_id: activeRoute.sourceNode.id, source_node_code: activeRoute.sourceNode.code, target_node_id: targetNode.id, target_node_code: targetNode.code };
                 drawnItems.addLayer(layer);
                 resetRouteBuilder();
                 bindDrawPopup(layer, 'polyline');
+                attachDrawingContext(layer);
                 try {
                     await saveLayer(layer, 'polyline');
                     layer.openPopup?.();
@@ -453,67 +449,92 @@
                 }
             };
 
+            const showInfo = (target) => {
+                if (target.type === 'map') {
+                    L.popup().setLatLng(target.latlng).setContent(`<div style="font-weight:800;color:#0f172a">Info Lokasi</div><div style="margin-top:4px;color:#475569">Lat: ${target.latlng.lat.toFixed(7)}<br>Lng: ${target.latlng.lng.toFixed(7)}</div>`).openOn(map);
+                    return;
+                }
+                if (target.type === 'node') {
+                    markersById.get(String(target.node.id))?.openPopup();
+                    return;
+                }
+                if (target.type === 'drawing') {
+                    target.layer.openPopup?.(target.latlng);
+                }
+            };
             const openContextMenu = (event, target) => {
                 event.originalEvent?.preventDefault?.();
                 hideContextMenu();
                 contextTarget = target;
                 const hasActive = !!activeRoute.sourceNode;
                 const isNode = target.type === 'node';
-                const title = isNode ? `Node ${target.node.code}` : 'Area map';
+                const isMap = target.type === 'map';
+                const isDrawing = target.type === 'drawing';
+                const isEditingTarget = isDrawing && activeEditLayer === target.layer;
+                const title = isNode ? `Node ${target.node.code}` : (isDrawing ? 'Garis manual' : 'Area map');
                 if (contextTitle) contextTitle.textContent = title;
                 contextButtons.forEach((button) => {
                     const action = button.dataset.contextAction;
                     button.hidden = !(
-                        (action === 'start' && isNode && !hasActive) ||
+                        action === 'info' ||
+                        (action === 'start' && isNode && !hasActive && !activeEditLayer) ||
                         (action === 'finish' && isNode && hasActive) ||
-                        (action === 'bend' && !isNode && hasActive) ||
-                        (action === 'cancel' && hasActive)
+                        (action === 'bend' && isMap && hasActive) ||
+                        (action === 'edit' && isDrawing && !activeEditLayer && !hasActive) ||
+                        (action === 'save-edit' && isEditingTarget) ||
+                        (action === 'delete' && isDrawing) ||
+                        (action === 'cancel' && (hasActive || activeEditLayer))
                     );
                 });
-                const hasVisibleButton = contextButtons.some((button) => !button.hidden);
-                if (!hasVisibleButton) {
-                    showToast('Pilih node untuk mulai membuat garis.', 'info');
-                    return;
-                }
                 const containerPoint = event.containerPoint || (target.latlng ? map.latLngToContainerPoint(target.latlng) : L.point(16, 16));
                 const mapSize = map.getSize();
-                const width = 230;
-                const height = 190;
+                const width = 250;
+                const height = 255;
                 const x = Math.min(Math.max(containerPoint.x, 8), Math.max(8, mapSize.x - width - 8));
                 const y = Math.min(Math.max(containerPoint.y, 8), Math.max(8, mapSize.y - height - 8));
                 contextMenu.style.left = `${x}px`;
                 contextMenu.style.top = `${y}px`;
                 contextMenu.classList.remove('hidden');
             };
-            contextButtons.forEach((button) => button.addEventListener('click', () => {
+            contextButtons.forEach((button) => button.addEventListener('click', async () => {
                 const action = button.dataset.contextAction;
                 const target = contextTarget;
                 hideContextMenu();
                 if (!target) return;
-                if (action === 'start' && target.node) startRouteFromNode(target.node);
-                if (action === 'finish' && target.node) finishRouteAtNode(target.node);
-                if (action === 'bend' && target.latlng) addRouteBend(target.latlng);
-                if (action === 'cancel') {
-                    resetRouteBuilder();
-                    showToast('Pembuatan garis dibatalkan.', 'info');
+                try {
+                    if (action === 'info') showInfo(target);
+                    if (action === 'start' && target.node) startRouteFromNode(target.node);
+                    if (action === 'finish' && target.node) await finishRouteAtNode(target.node);
+                    if (action === 'bend' && target.latlng) addRouteBend(target.latlng);
+                    if (action === 'edit' && target.layer) enableEditLayer(target.layer);
+                    if (action === 'save-edit') await saveEditLayer(target.layer || activeEditLayer);
+                    if (action === 'delete' && target.layer) await removeDrawingLayer(target.layer);
+                    if (action === 'cancel') {
+                        if (activeEditLayer) activeEditLayer.editing?.disable?.();
+                        activeEditLayer = null;
+                        resetRouteBuilder();
+                        showToast('Mode dibatalkan.', 'info');
+                    }
+                } catch (error) {
+                    showToast(error.message || 'Aksi gagal.', 'error');
                 }
             }));
             cancelButton?.addEventListener('click', () => {
+                if (activeEditLayer) activeEditLayer.editing?.disable?.();
+                activeEditLayer = null;
                 resetRouteBuilder();
-                showToast('Pembuatan garis dibatalkan.', 'info');
+                showToast('Mode dibatalkan.', 'info');
             });
             lineColorInput?.addEventListener('input', () => redrawRoutePreview());
             map.on('click movestart zoomstart', hideContextMenu);
             map.on('contextmenu', (event) => openContextMenu(event, { type: 'map', latlng: event.latlng }));
-            map.on('mousemove', (event) => {
-                if (!activeRoute.sourceNode) return;
-                activeRoute.cursorLatLng = event.latlng;
-                redrawRoutePreview();
-            });
+            map.on('mousemove', (event) => { if (!activeRoute.sourceNode) return; activeRoute.cursorLatLng = event.latlng; redrawRoutePreview(); });
             document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape' && activeRoute.sourceNode) {
+                if (event.key === 'Escape' && (activeRoute.sourceNode || activeEditLayer)) {
+                    if (activeEditLayer) activeEditLayer.editing?.disable?.();
+                    activeEditLayer = null;
                     resetRouteBuilder();
-                    showToast('Pembuatan garis dibatalkan.', 'info');
+                    showToast('Mode dibatalkan.', 'info');
                 }
             });
 
@@ -531,18 +552,7 @@
                 const mapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${point[0] ?? point.lat},${point[1] ?? point.lng}`)}`;
                 const photoSrc = node.photo_url || node.photo_path;
                 const photo = photoSrc ? `<img src="${escapeHtml(photoSrc)}" alt="${escapeHtml(node.code)}" style="margin-top:8px;max-width:220px;border-radius:8px;border:1px solid #e2e8f0">` : '';
-                marker.bindPopup(`
-                    <div style="min-width:230px">
-                        <div style="font-weight:800;font-size:14px;color:#0f172a">${escapeHtml(node.code)}</div>
-                        <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Nama:</span> ${escapeHtml(node.name || '-')}</div>
-                        <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Jenis:</span> ${escapeHtml(node.type || '-')}</div>
-                        <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Koordinat:</span> ${escapeHtml(point[0] ?? point.lat)}, ${escapeHtml(point[1] ?? point.lng)}</div>
-                        <div style="margin-top:6px;font-size:12px;color:#0f766e;font-weight:700">Node dikunci. Klik kanan node untuk membuka menu garis.</div>
-                        <div style="margin-top:8px"><a href="${mapsUrl}" target="_blank" rel="noreferrer" style="font-weight:700;color:#0369a1">Buka di Google Maps</a></div>
-                        <div style="margin-top:8px;font-size:13px;color:#334155"><span style="color:#64748b">Alamat:</span> ${escapeHtml(node.address || '-')}</div>
-                        <div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Catatan:</span> ${escapeHtml(node.notes || '-')}</div>${photo}
-                    </div>
-                `);
+                marker.bindPopup(`<div style="min-width:230px"><div style="font-weight:800;font-size:14px;color:#0f172a">${escapeHtml(node.code)}</div><div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Nama:</span> ${escapeHtml(node.name || '-')}</div><div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Jenis:</span> ${escapeHtml(node.type || '-')}</div><div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Koordinat:</span> ${escapeHtml(point[0] ?? point.lat)}, ${escapeHtml(point[1] ?? point.lng)}</div><div style="margin-top:6px;font-size:12px;color:#0f766e;font-weight:700">Node dikunci. Klik kanan node untuk membuka menu.</div><div style="margin-top:8px"><a href="${mapsUrl}" target="_blank" rel="noreferrer" style="font-weight:700;color:#0369a1">Buka di Google Maps</a></div><div style="margin-top:8px;font-size:13px;color:#334155"><span style="color:#64748b">Alamat:</span> ${escapeHtml(node.address || '-')}</div><div style="margin-top:4px;font-size:13px;color:#334155"><span style="color:#64748b">Catatan:</span> ${escapeHtml(node.notes || '-')}</div>${photo}</div>`);
             };
 
             mappedNodes.forEach((node) => {
@@ -551,10 +561,7 @@
                 bounds.push(point);
                 const marker = L.marker(point, { icon: markerIcon(node), draggable: false }).addTo(map);
                 bindNodePopup(marker, node);
-                marker.on('contextmenu', (event) => {
-                    L.DomEvent.stop(event);
-                    openContextMenu(event, { type: 'node', node, latlng: event.latlng });
-                });
+                marker.on('contextmenu', (event) => { L.DomEvent.stop(event); openContextMenu(event, { type: 'node', node, latlng: event.latlng }); });
                 markersById.set(String(node.id), marker);
             });
 
@@ -566,10 +573,7 @@
                 const targetPoint = pointOfNode(target);
                 if (!sourcePoint || !targetPoint) return;
                 const label = [link.cable_type, link.core_count ? `core ${link.core_count}` : null, link.core_number].filter(Boolean).join(' - ');
-                const line = L.polyline([sourcePoint, targetPoint], { color: colors[source.type] || '#0f172a', weight: 1.8, opacity: .72, dashArray: '6 8', lineCap: 'round', lineJoin: 'round' }).addTo(map).bindPopup(`
-                    <div style="font-weight:800">${escapeHtml(source.code)} -> ${escapeHtml(target.code)}</div>
-                    <div style="margin-top:4px;color:#64748b">${escapeHtml(label || 'Link')}</div>
-                `);
+                const line = L.polyline([sourcePoint, targetPoint], { color: colors[source.type] || '#0f172a', weight: 1.8, opacity: .72, dashArray: '6 8', lineCap: 'round', lineJoin: 'round' }).addTo(map).bindPopup(`<div style="font-weight:800">${escapeHtml(source.code)} -> ${escapeHtml(target.code)}</div><div style="margin-top:4px;color:#64748b">${escapeHtml(label || 'Link')}</div>`);
                 networkLines.push({ sourceId: link.source_node_id, targetId: link.target_node_id, line });
             });
 

@@ -57,13 +57,23 @@
             <span class="font-black text-slate-900">{{ count($mapNodes) }} node</span><span class="mx-1 text-slate-300">/</span><span class="font-black text-slate-900">{{ count($mapLinks) }} link</span><span class="ml-2 text-slate-500">Update {{ $generatedAt }}</span>
         </div>
 
-        <div class="absolute right-3 top-3 z-[650] w-[min(25rem,calc(100%-1.5rem))] rounded-xl border border-slate-200 bg-white/95 p-3 text-xs font-semibold leading-5 text-slate-700 shadow-lg backdrop-blur" data-map-panel>
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div><div class="text-[11px] font-black uppercase tracking-wide text-slate-400">Mode map</div><div class="mt-0.5 text-sm font-black text-slate-900" data-draw-mode-label>Mode normal</div></div>
-                <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2"><span class="text-[11px] font-black uppercase text-slate-500">Warna</span><input type="color" value="#0284c7" class="h-7 w-9 cursor-pointer rounded border border-slate-200 bg-white" data-line-color aria-label="Pilih warna garis"></label>
-                <button type="button" class="hidden rounded-lg bg-rose-600 px-3 py-2 text-xs font-black text-white shadow-sm hover:bg-rose-700" data-route-cancel>Batal</button>
+        <div class="absolute right-3 top-3 z-[650] w-[min(21rem,calc(100%-1.5rem))] rounded-xl border border-slate-200 bg-white/95 p-2.5 text-xs font-semibold leading-5 text-slate-700 shadow-lg backdrop-blur" data-map-panel>
+            <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                    <div class="text-[10px] font-black uppercase tracking-wide text-slate-400">Mode map</div>
+                    <div class="truncate text-sm font-black text-slate-900" data-draw-mode-label>Mode normal</div>
+                </div>
+                <label class="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                    <span class="text-[10px] font-black uppercase text-slate-500">Warna</span>
+                    <input type="color" value="#0284c7" class="h-6 w-8 cursor-pointer rounded border border-slate-200 bg-white" data-line-color aria-label="Pilih warna garis">
+                </label>
             </div>
-            <div class="mt-2 text-xs text-slate-500" data-map-help>Klik kanan node untuk menu. Saat mode garis aktif, klik kiri map untuk titik belok dan klik kiri node tujuan untuk selesai.</div>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="hidden rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-black text-sky-700" data-bend-count>0 titik belok</span>
+                <button type="button" class="hidden rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-black text-slate-700 shadow-sm hover:bg-slate-50" data-route-undo>Undo titik</button>
+                <button type="button" class="hidden rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-black text-white shadow-sm hover:bg-rose-700" data-route-cancel>Batal</button>
+            </div>
+            <div class="mt-2 text-[11px] leading-4 text-slate-500" data-map-help>Klik kanan node untuk menu. Saat mode garis aktif, klik kiri map untuk titik belok dan klik kiri node tujuan untuk selesai.</div>
         </div>
 
         <div data-context-menu class="absolute z-[900] hidden min-w-60 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-2xl">
@@ -116,6 +126,8 @@
             const modeLabelEl = document.querySelector('[data-draw-mode-label]');
             const lineColorInput = document.querySelector('[data-line-color]');
             const cancelButton = document.querySelector('[data-route-cancel]');
+            const undoButton = document.querySelector('[data-route-undo]');
+            const bendCountEl = document.querySelector('[data-bend-count]');
             const contextMenu = document.querySelector('[data-context-menu]');
             const contextTitle = document.querySelector('[data-context-title]');
             const contextButtons = Array.from(document.querySelectorAll('[data-context-action]'));
@@ -136,6 +148,15 @@
                 else toastEl.classList.add('border-emerald-200', 'text-emerald-800', 'bg-emerald-50');
                 toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 3000);
             };
+            const updateRouteControls = () => {
+                const drawing = !!activeRoute.sourceNode;
+                const bends = Math.max(0, activeRoute.points.length - 1);
+                if (bendCountEl) {
+                    bendCountEl.textContent = `${bends} titik belok`;
+                    bendCountEl.classList.toggle('hidden', !drawing);
+                }
+                undoButton?.classList.toggle('hidden', !drawing || bends === 0);
+            };
             const setMode = (mode, message = null) => {
                 const drawing = mode === 'drawing';
                 const editing = mode === 'editing';
@@ -145,6 +166,7 @@
                 panelEl?.classList.toggle('border-sky-300', drawing || editing);
                 panelEl?.classList.toggle('bg-sky-50/95', drawing || editing);
                 document.querySelector('#network-map')?.classList.toggle('is-route-drawing', drawing);
+                updateRouteControls();
             };
             const hideContextMenu = () => { contextMenu?.classList.add('hidden'); contextTarget = null; };
             const normalizePoint = (latRaw, lngRaw) => {
@@ -299,7 +321,18 @@
                 marker.on('click', () => marker.openPopup());
                 activeRoute.bendMarkers.push(marker);
                 redrawRoutePreview();
+                updateRouteControls();
                 showToast('Titik belok ditambahkan.', 'info');
+            };
+            const undoLastBend = () => {
+                if (!activeRoute.sourceNode || activeRoute.points.length <= 1) return;
+                activeRoute.points.pop();
+                const marker = activeRoute.bendMarkers.pop();
+                if (marker) map.removeLayer(marker);
+                activeRoute.cursorLatLng = null;
+                redrawRoutePreview();
+                updateRouteControls();
+                showToast('Titik belok terakhir dihapus.', 'info');
             };
             const finishRouteAtNode = async (targetNode) => {
                 if (!activeRoute.sourceNode) return;
@@ -366,6 +399,7 @@
                 } catch (error) { showToast(error.message || 'Aksi gagal.', 'error'); }
             }));
             cancelButton?.addEventListener('click', () => { if (activeEditLayer) activeEditLayer.editing?.disable?.(); activeEditLayer = null; resetRouteBuilder(); showToast('Mode dibatalkan.', 'info'); });
+            undoButton?.addEventListener('click', undoLastBend);
             lineColorInput?.addEventListener('input', () => redrawRoutePreview());
             map.on('click movestart zoomstart', hideContextMenu);
             map.on('contextmenu', (event) => openContextMenu(event, { type: 'map', latlng: event.latlng }));
@@ -387,11 +421,7 @@
                 const marker = L.marker(point, { icon: markerIcon(node), draggable: false }).addTo(map);
                 bindNodePopup(marker, node);
                 marker.on('contextmenu', (event) => { L.DomEvent.stop(event); openContextMenu(event, { type: 'node', node, latlng: event.latlng }); });
-                marker.on('click', (event) => {
-                    L.DomEvent.stop(event);
-                    if (activeRoute.sourceNode) finishRouteAtNode(node);
-                    else marker.openPopup();
-                });
+                marker.on('click', (event) => { L.DomEvent.stop(event); if (activeRoute.sourceNode) finishRouteAtNode(node); else marker.openPopup(); });
                 markersById.set(String(node.id), marker);
             });
             links.forEach((link) => {

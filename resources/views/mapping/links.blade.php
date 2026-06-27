@@ -2,7 +2,7 @@
     <div class="space-y-5">
         <section class="data-page-hero">
             <div><div class="data-page-eyebrow">Koneksi jaringan</div><h2 class="data-page-title">Data Link</h2><p class="data-page-description">Kelola hubungan antar node, kabel, core, PON, dan ODC dengan lebih cepat.</p></div>
-            <div class="flex flex-wrap gap-2"><a class="btn-hero" href="{{ route('topology') }}">Lihat Topology</a><button type="button" class="btn-primary gap-2" data-modal-open="#link-create-modal" data-primary-create><span class="text-lg leading-none">+</span> Tambah Link</button></div>
+            <div class="flex flex-wrap gap-2"><a class="btn-hero" href="{{ route('map') }}">Lihat Map</a><button type="button" class="btn-primary gap-2" data-modal-open="#link-create-modal" data-primary-create><span class="text-lg leading-none">+</span> Tambah Link</button></div>
         </section>
         <section class="grid gap-3 sm:grid-cols-3">
             <div class="data-stat"><span class="data-stat-icon bg-sky-50 text-sky-700">↗</span><div><strong>{{ $links->count() }}</strong><span>Total link</span></div></div>
@@ -97,16 +97,18 @@
         <dialog id="link-edit-{{ $link->id }}" class="modal-shell">
             <form method="post" action="{{ route('links.update', $link) }}">
                 @csrf @method('put')
+                <input type="hidden" name="source_node_id" value="{{ $link->source_node_id }}">
+                <input type="hidden" name="target_node_id" value="{{ $link->target_node_id }}">
                 <div class="modal-header">
                     <div>
                         <h3 class="text-lg font-bold">Edit Link</h3>
-                        <p class="mt-1 text-sm text-slate-500">{{ $link->source?->code ?? '-' }} ke {{ $link->target?->code ?? '-' }}</p>
+                        <p class="mt-1 text-sm text-slate-500">Arah link sudah dikunci: {{ $link->source?->code ?? '-' }} ke {{ $link->target?->code ?? '-' }}</p>
                     </div>
                     <button type="button" class="btn" data-modal-close>Tutup</button>
                 </div>
                 <div class="modal-body grid gap-4 md:grid-cols-2">
-                    <label class="grid gap-2"><span class="form-label">Node Sumber</span><select name="source_node_id" class="form-control" required>@foreach ($nodes as $node)<option value="{{ $node->id }}" @selected($link->source_node_id === $node->id)>{{ $node->code }}</option>@endforeach</select></label>
-                    <label class="grid gap-2"><span class="form-label">Node Tujuan</span><select name="target_node_id" class="form-control" required>@foreach ($nodes as $node)<option value="{{ $node->id }}" @selected($link->target_node_id === $node->id)>{{ $node->code }}</option>@endforeach</select></label>
+                    <label class="grid gap-2"><span class="form-label">Node Sumber</span><input value="{{ $link->source?->code ?? '-' }}{{ $link->source?->name ? ' — '.$link->source->name : '' }}" class="form-control bg-slate-100 text-slate-600" readonly aria-readonly="true"><span class="text-xs font-semibold text-slate-500">Dikunci karena arah link sudah dibuat dari map/data link.</span></label>
+                    <label class="grid gap-2"><span class="form-label">Node Tujuan</span><input value="{{ $link->target?->code ?? '-' }}{{ $link->target?->name ? ' — '.$link->target->name : '' }}" class="form-control bg-slate-100 text-slate-600" readonly aria-readonly="true"><span class="text-xs font-semibold text-slate-500">Untuk mengubah arah, hapus link lalu buat/gambar ulang.</span></label>
                     <label class="grid gap-2"><span class="form-label">Tipe Kabel</span><input name="cable_type" value="{{ $link->cable_type }}" class="form-control" placeholder="FO"></label>
                     <label class="grid gap-2"><span class="form-label">Jumlah Core</span><input name="core_count" value="{{ $link->core_count }}" class="form-control" placeholder="12"></label>
                     <label class="grid gap-2"><span class="form-label">Nomor Core</span><input name="core_number" value="{{ $link->core_number }}" class="form-control" placeholder="1-12"></label>

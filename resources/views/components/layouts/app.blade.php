@@ -25,7 +25,6 @@
                 $items = [
                     ['route' => 'dashboard', 'label' => 'Dashboard'],
                     ['route' => 'map', 'label' => 'Map View'],
-                    ['route' => 'topology', 'label' => 'Topology'],
                     ['route' => 'nodes.index', 'label' => 'Data Node'],
                     ['route' => 'links.index', 'label' => 'Data Link'],
                     ['route' => 'reports.index', 'label' => 'Pusat Report'],
@@ -45,9 +44,6 @@
                                     @break
                                 @case('map')
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l7-2 7 2 7-2v14l-7 2-7-2-7 2V6z"/><path d="M10 4v14M18 6v14"/></svg>
-                                    @break
-                                @case('topology')
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v10M12 7l-6 8M12 7l6 8"/></svg>
                                     @break
                                 @case('nodes.index')
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>

@@ -74,6 +74,10 @@ class MapDrawingController extends Controller
         $properties = $data['properties'] ?? [];
         $sourceId = (int) ($properties['source_node_id'] ?? 0);
         $targetId = (int) ($properties['target_node_id'] ?? 0);
+        $cableName = trim((string) ($properties['cable_name'] ?? $data['name'] ?? ''));
+        $autoNotes = $cableName !== ''
+            ? "Dibuat otomatis dari garis manual di Map View. Nama kabel: {$cableName}"
+            : 'Dibuat otomatis dari garis manual di Map View.';
 
         if ($sourceId <= 0 || $targetId <= 0 || $sourceId === $targetId) {
             unset($properties['link_id'], $properties['link_status']);
@@ -88,6 +92,7 @@ class MapDrawingController extends Controller
             $link->update([
                 'source_node_id' => $sourceId,
                 'target_node_id' => $targetId,
+                'notes' => $autoNotes,
             ]);
             $properties['link_status'] = 'updated';
         } else {
@@ -98,9 +103,14 @@ class MapDrawingController extends Controller
                 ],
                 [
                     'cable_type' => 'Manual Drawing',
-                    'notes' => 'Dibuat otomatis dari garis manual di Map View.',
+                    'notes' => $autoNotes,
                 ]
             );
+
+            if (! $link->wasRecentlyCreated && $cableName !== '' && $link->cable_type === 'Manual Drawing') {
+                $link->update(['notes' => $autoNotes]);
+            }
+
             $properties['link_status'] = $link->wasRecentlyCreated ? 'created' : 'existing';
         }
 

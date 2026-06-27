@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MapDrawingController;
 use App\Http\Controllers\MappingController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserManagementController;
@@ -16,6 +17,9 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
     Route::get('/', [MappingController::class, 'dashboard'])->name('dashboard');
     Route::get('/map', [MappingController::class, 'map'])->name('map');
+    Route::post('/map/drawings', [MapDrawingController::class, 'store'])->name('map.drawings.store');
+    Route::put('/map/drawings/{drawing}', [MapDrawingController::class, 'update'])->name('map.drawings.update');
+    Route::delete('/map/drawings/{drawing}', [MapDrawingController::class, 'destroy'])->name('map.drawings.destroy');
 
     Route::get('/nodes', [MappingController::class, 'nodes'])->name('nodes.index');
     Route::post('/nodes', [MappingController::class, 'storeNode'])->name('nodes.store');

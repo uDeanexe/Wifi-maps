@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Link;
+use App\Models\MapDrawing;
 use App\Models\Node;
 use App\Services\PdfReportService;
 use Illuminate\Database\Eloquent\Builder;
@@ -128,7 +129,7 @@ class ReportController extends Controller
     public function linksCsv(): StreamedResponse
     {
         return $this->csv('links-'.now()->format('Y-m-d').'.csv', [
-            'source_code', 'target_code', 'cable_type', 'core_count', 'core_number', 'pon_name', 'odc_name', 'notes',
+            'source_code', 'target_code', 'cable_name', 'cable_type', 'core_count', 'core_number', 'pon_name', 'odc_name', 'notes',
         ], $this->linkRows());
     }
 
@@ -198,10 +199,18 @@ class ReportController extends Controller
 
     private function linkRow(Link $link): array
     {
+        $drawing = MapDrawing::query()
+            ->where('properties->link_id', $link->id)
+            ->latest()
+            ->first();
+        $drawingProperties = $drawing?->properties ?? [];
+        $cableName = $drawingProperties['cable_name'] ?? $drawing?->name ?? $this->cableNameFromNotes($link->notes);
+
         return [
             'id' => $link->id,
             'source_code' => $link->source?->code,
             'target_code' => $link->target?->code,
+            'cable_name' => $cableName,
             'cable_type' => $link->cable_type,
             'core_count' => $link->core_count,
             'core_number' => $link->core_number,
@@ -209,6 +218,15 @@ class ReportController extends Controller
             'odc_name' => $link->odc_name,
             'notes' => $link->notes,
         ];
+    }
+
+    private function cableNameFromNotes(?string $notes): ?string
+    {
+        if (! $notes || ! preg_match('/Nama kabel:\s*(.+)$/iu', $notes, $matches)) {
+            return null;
+        }
+
+        return trim($matches[1]);
     }
 
     private function nodeQuery(): Builder

@@ -1,22 +1,99 @@
 <x-layouts.app title="Akun User">
-    <section class="data-page-hero mb-5"><div><div class="data-page-eyebrow">Manajemen akses</div><h2 class="data-page-title">Akun User</h2><p class="data-page-description">Kelola akses superadmin, admin, supervisor NOC, dan teknisi.</p></div><button type="button" class="btn-primary" data-modal-open="#user-create-modal" data-primary-create>+ Tambah User</button></section>
-    <section class="panel mb-5 p-4"><div class="flex gap-2"><label class="relative min-w-0 flex-1"><span class="sr-only">Cari user</span><input class="form-control !pl-10" data-table-search="#users-table" data-search-summary="#users-search-summary" placeholder="Cari nama, email, telepon, atau role..."><span class="pointer-events-none absolute left-3 top-2.5 text-slate-400">⌕</span></label><button type="button" class="btn-compact hidden" data-clear-search="#users-table">Bersihkan</button></div></section>
+    @php
+        $currentUser = auth()->user();
+        $activeSuperadminCount = $users->where('role', 'superadmin')->where('is_active', true)->count();
+    @endphp
+
+    <section class="data-page-hero mb-5">
+        <div>
+            <div class="data-page-eyebrow">Manajemen akses</div>
+            <h2 class="data-page-title">Akun User</h2>
+            <p class="data-page-description">Kelola akses superadmin, admin, supervisor NOC, dan teknisi.</p>
+        </div>
+        <button type="button" class="btn-primary" data-modal-open="#user-create-modal" data-primary-create>+ Tambah User</button>
+    </section>
+
+    <section class="panel mb-5 p-4">
+        <div class="flex gap-2">
+            <label class="relative min-w-0 flex-1">
+                <span class="sr-only">Cari user</span>
+                <input class="form-control !pl-10" data-table-search="#users-table" data-search-summary="#users-search-summary" placeholder="Cari nama, email, telepon, atau role...">
+                <span class="pointer-events-none absolute left-3 top-2.5 text-slate-400">⌕</span>
+            </label>
+            <button type="button" class="btn-compact hidden" data-clear-search="#users-table">Bersihkan</button>
+        </div>
+    </section>
 
     <div class="panel overflow-hidden">
-        <div class="border-b border-slate-100 px-5 py-4"><h3 class="font-black text-slate-900">Daftar User</h3><p id="users-search-summary" class="text-xs text-slate-500">{{ $users->count() }} akun tersimpan</p></div>
+        <div class="border-b border-slate-100 px-5 py-4">
+            <h3 class="font-black text-slate-900">Daftar User</h3>
+            <p id="users-search-summary" class="text-xs text-slate-500">{{ $users->count() }} akun tersimpan</p>
+        </div>
         <div class="overflow-x-auto">
             <table id="users-table" class="data-table responsive-data-table">
-                <thead><tr><th><button type="button" class="table-sort" data-sort-table="#users-table" data-sort-column="0">Nama <span>↕</span></button></th><th><button type="button" class="table-sort" data-sort-table="#users-table" data-sort-column="1">Email <span>↕</span></button></th><th>No Telp</th><th><button type="button" class="table-sort" data-sort-table="#users-table" data-sort-column="3">Role <span>↕</span></button></th><th>Status</th><th>Dibuat</th><th class="text-right">Aksi</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th><button type="button" class="table-sort" data-sort-table="#users-table" data-sort-column="0">Nama <span>↕</span></button></th>
+                        <th><button type="button" class="table-sort" data-sort-table="#users-table" data-sort-column="1">Email <span>↕</span></button></th>
+                        <th>No Telp</th>
+                        <th><button type="button" class="table-sort" data-sort-table="#users-table" data-sort-column="3">Role <span>↕</span></button></th>
+                        <th>Status</th>
+                        <th>Dibuat</th>
+                        <th class="text-right">Aksi</th>
+                    </tr>
+                </thead>
                 <tbody>
                     @forelse ($users as $user)
+                        @php
+                            $canManageUser = $currentUser->role === 'superadmin' || $user->role !== 'superadmin';
+                            $isCurrentUser = $currentUser->is($user);
+                            $isLastActiveSuperadmin = $user->role === 'superadmin' && $user->is_active && $activeSuperadminCount <= 1;
+                            $canToggleStatus = $canManageUser && ! $isCurrentUser && ! $isLastActiveSuperadmin;
+                            $canDeleteUser = $canManageUser && ! $isCurrentUser && ! $isLastActiveSuperadmin;
+                        @endphp
                         <tr>
-                            <td data-label="Nama" class="font-bold">{{ $user->name }}</td><td data-label="Email">{{ $user->email }}</td><td data-label="No Telp">{{ $user->phone ?: '-' }}</td><td data-label="Role"><span class="badge">{{ str($user->role)->replace('_', ' ')->title() }}</span></td><td data-label="Status"><span class="badge {{ $user->is_active ? '!bg-emerald-50 !text-emerald-700' : '!bg-rose-50 !text-rose-700' }}">{{ $user->is_active ? 'Aktif' : 'Nonaktif' }}</span></td><td data-label="Dibuat">{{ $user->created_at?->format('d M Y H:i') }}</td>
-                            <td data-label="Aksi" class="text-right">
-                                @if(auth()->user()->role === 'superadmin' || $user->role !== 'superadmin')
-                                    <button type="button" class="btn-compact" data-modal-open="#user-edit-{{ $user->id }}">Edit</button>
-                                @else
-                                    <span class="text-xs font-semibold text-slate-400">Dilindungi</span>
-                                @endif
+                            <td data-label="Nama" class="font-bold">{{ $user->name }}</td>
+                            <td data-label="Email">{{ $user->email }}</td>
+                            <td data-label="No Telp">{{ $user->phone ?: '-' }}</td>
+                            <td data-label="Role"><span class="badge">{{ str($user->role)->replace('_', ' ')->title() }}</span></td>
+                            <td data-label="Status">
+                                <span class="badge {{ $user->is_active ? '!bg-emerald-50 !text-emerald-700' : '!bg-rose-50 !text-rose-700' }}">
+                                    {{ $user->is_active ? 'Aktif' : 'Nonaktif' }}
+                                </span>
+                            </td>
+                            <td data-label="Dibuat">{{ $user->created_at?->format('d M Y H:i') }}</td>
+                            <td data-label="Aksi">
+                                <div class="flex flex-wrap justify-end gap-2">
+                                    @if ($canManageUser)
+                                        <button type="button" class="btn-compact" data-modal-open="#user-edit-{{ $user->id }}">Edit</button>
+                                    @endif
+
+                                    @if ($canToggleStatus)
+                                        <form method="post" action="{{ route('users.active', $user) }}" data-confirm-form="{{ $user->is_active ? 'Nonaktifkan akun '.$user->name.'?' : 'Aktifkan akun '.$user->name.'?' }}">
+                                            @csrf
+                                            @method('patch')
+                                            <button class="{{ $user->is_active ? 'btn-danger' : 'btn-compact' }}">
+                                                {{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    @if ($canDeleteUser)
+                                        <form method="post" action="{{ route('users.destroy', $user) }}" data-confirm-form="Hapus akun {{ $user->name }}? Aksi ini tidak bisa dibatalkan.">
+                                            @csrf
+                                            @method('delete')
+                                            <button class="btn-danger">Hapus</button>
+                                        </form>
+                                    @endif
+
+                                    @if (! $canManageUser)
+                                        <span class="text-xs font-semibold text-slate-400">Dilindungi</span>
+                                    @elseif ($isCurrentUser)
+                                        <span class="text-xs font-semibold text-slate-400">Akun Anda</span>
+                                    @elseif ($isLastActiveSuperadmin)
+                                        <span class="text-xs font-semibold text-slate-400">Superadmin terakhir</span>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty

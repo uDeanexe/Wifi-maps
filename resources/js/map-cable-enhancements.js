@@ -11,21 +11,30 @@ cableEnhancementStyle.textContent = `
     }
 
     .cable-save-dialog {
-        width: min(420px, calc(100vw - 2rem));
-        border: 0;
-        border-radius: 16px;
-        padding: 0;
-        overflow: hidden;
-        box-shadow: 0 30px 80px rgba(15, 23, 42, .28);
+        position: fixed !important;
+        inset: 50% auto auto 50% !important;
+        transform: translate(-50%, -50%) !important;
+        margin: 0 !important;
+        width: min(430px, calc(100vw - 2rem)) !important;
+        max-height: min(86vh, 560px) !important;
+        border: 0 !important;
+        border-radius: 18px !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        box-shadow: 0 30px 90px rgba(15, 23, 42, .32) !important;
+        z-index: 2147483647 !important;
     }
 
     .cable-save-dialog::backdrop {
-        background: rgba(15, 23, 42, .42);
+        background: rgba(15, 23, 42, .55) !important;
+        backdrop-filter: blur(2px) !important;
     }
 
     .cable-save-card {
         background: #fff;
         padding: 1rem;
+        max-height: min(86vh, 560px);
+        overflow-y: auto;
     }
 
     .cable-save-field {
@@ -64,17 +73,42 @@ cableEnhancementStyle.textContent = `
         #network-map .leaflet-top.leaflet-right {
             top: 160px !important;
         }
+
+        .cable-save-dialog {
+            width: min(420px, calc(100vw - 1.25rem)) !important;
+            max-height: calc(100vh - 1.25rem) !important;
+            border-radius: 16px !important;
+        }
     }
 `;
 document.head.appendChild(cableEnhancementStyle);
 
+function closeLeafletPopups() {
+    document.querySelectorAll('.leaflet-popup-close-button').forEach((button) => {
+        if (button instanceof HTMLElement) button.click();
+    });
+    document.querySelectorAll('.leaflet-popup-pane .leaflet-popup').forEach((popup) => popup.remove());
+}
+
+function forceCenterDialog(dialog) {
+    dialog.style.setProperty('position', 'fixed', 'important');
+    dialog.style.setProperty('inset', '50% auto auto 50%', 'important');
+    dialog.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+    dialog.style.setProperty('margin', '0', 'important');
+    dialog.style.setProperty('z-index', '2147483647', 'important');
+}
+
 function ensureCableSaveDialog() {
     let dialog = document.querySelector('[data-cable-save-dialog]');
-    if (dialog) return dialog;
+    if (dialog) {
+        forceCenterDialog(dialog);
+        return dialog;
+    }
 
     dialog = document.createElement('dialog');
     dialog.className = 'cable-save-dialog';
     dialog.dataset.cableSaveDialog = '1';
+    forceCenterDialog(dialog);
     dialog.innerHTML = `
         <form method="dialog" class="cable-save-card" data-cable-save-form>
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;border-bottom:1px solid #f1f5f9;padding-bottom:.75rem">
@@ -108,7 +142,9 @@ function ensureCableSaveDialog() {
 }
 
 function askCableDetails(payload) {
+    closeLeafletPopups();
     const dialog = ensureCableSaveDialog();
+    forceCenterDialog(dialog);
     const form = dialog.querySelector('[data-cable-save-form]');
     const nameInput = dialog.querySelector('[data-cable-name]');
     const colorInput = dialog.querySelector('[data-cable-color]');
@@ -155,7 +191,9 @@ function askCableDetails(payload) {
         closeButton.addEventListener('click', onCancel);
         cancelButton.addEventListener('click', onCancel);
         dialog.addEventListener('cancel', onCancel);
+        closeLeafletPopups();
         dialog.showModal();
+        forceCenterDialog(dialog);
         nameInput.focus();
         nameInput.select();
     });

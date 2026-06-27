@@ -23,6 +23,7 @@
 
     <div class="map-full-canvas relative min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div id="network-map" class="h-full w-full"></div>
+
         <details class="map-filter-popover absolute left-3 bottom-3 z-[600] w-[min(390px,calc(100%-1.5rem))]">
             <summary class="inline-flex cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 bg-white/95 px-4 py-2.5 text-sm font-black text-slate-800 shadow-sm backdrop-blur transition-colors hover:bg-slate-50">
                 Filter{{ $activeFilterSummary->isNotEmpty() ? ' ('.$activeFilterSummary->count().')' : '' }}
@@ -84,14 +85,12 @@
                 </div>
             </form>
         </details>
+
         <div class="map-status-badge absolute left-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
             <span class="font-black text-slate-900">{{ count($mapNodes) }} node</span>
             <span class="mx-1 text-slate-300">/</span>
             <span class="font-black text-slate-900">{{ count($mapLinks) }} link</span>
             <span class="ml-2 text-slate-500">Update {{ $generatedAt }}</span>
-        </div>
-        <div class="map-routing-badge absolute right-3 top-3 z-[500] rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
-            <span class="text-slate-500">Routing:</span> <span data-osrm-status>{{ config('services.osrm.enabled', true) ? 'Checking...' : 'OFF' }}</span>
         </div>
     </div>
 
@@ -106,11 +105,7 @@
             height: 100%;
         }
 
-        /* Keep the layer toggle from overlapping the routing badge. */
-        #network-map .leaflet-top.leaflet-right {
-            top: 52px;
-        }
-
+        #network-map .leaflet-top.leaflet-right,
         #network-map .leaflet-top.leaflet-left {
             top: 52px;
         }
@@ -159,12 +154,6 @@
                 max-width: none;
                 width: auto;
             }
-
-            .map-routing-badge {
-                left: 0.75rem;
-                right: auto;
-                top: 3.35rem;
-            }
         }
     </style>
 
@@ -179,8 +168,6 @@
             const focus = @json($mapFocus);
             const MIN_ZOOM = 10;
             const MAX_ZOOM = 18;
-            const osrmEnabled = @json((bool) config('services.osrm.enabled', true));
-            const osrmStatusEl = document.querySelector('[data-osrm-status]');
             const colors = {
                 odc: '#7c3aed',
                 pon: '#2563eb',
@@ -197,12 +184,10 @@
                 if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
                 let fixedLat = lat;
                 let fixedLng = lng;
-                // Handle common mistake: swapped lat/lng.
                 if (Math.abs(fixedLat) > 90 && Math.abs(fixedLng) <= 90) {
                     [fixedLat, fixedLng] = [fixedLng, fixedLat];
                 }
                 if (Math.abs(fixedLat) > 90 || Math.abs(fixedLng) > 180) return null;
-                // Avoid "Null Island" (0,0) which commonly appears from empty/invalid GPS values.
                 if (Math.abs(fixedLat) < 1e-9 && Math.abs(fixedLng) < 1e-9) return null;
                 return [fixedLat, fixedLng];
             };
@@ -298,29 +283,15 @@
                     draw: {
                         marker: true,
                         polyline: {
-                            shapeOptions: {
-                                color: '#0284c7',
-                                weight: 3,
-                                opacity: 0.9,
-                            },
+                            shapeOptions: { color: '#0284c7', weight: 3, opacity: 0.9 },
                         },
                         polygon: {
                             allowIntersection: false,
                             showArea: true,
-                            shapeOptions: {
-                                color: '#0f766e',
-                                weight: 2,
-                                opacity: 0.9,
-                                fillOpacity: 0.18,
-                            },
+                            shapeOptions: { color: '#0f766e', weight: 2, opacity: 0.9, fillOpacity: 0.18 },
                         },
                         rectangle: {
-                            shapeOptions: {
-                                color: '#7c3aed',
-                                weight: 2,
-                                opacity: 0.9,
-                                fillOpacity: 0.14,
-                            },
+                            shapeOptions: { color: '#7c3aed', weight: 2, opacity: 0.9, fillOpacity: 0.14 },
                         },
                         circle: false,
                         circlemarker: false,
@@ -377,23 +348,15 @@
                 const targetPoint = normalizePoint(target.latitude, target.longitude);
                 if (!sourcePoint || !targetPoint) return;
 
-                const route = Array.isArray(link.route_geometry) && link.route_geometry.length >= 2
-                    ? link.route_geometry.map((pair) => Array.isArray(pair) && pair.length >= 2 ? [Number(pair[0]), Number(pair[1])] : null).filter(Boolean)
-                    : null;
-
-                const line = route && route.length >= 2
-                    ? route
-                    : [sourcePoint, targetPoint];
-
                 const label = [link.cable_type, link.core_count ? `core ${link.core_count}` : null, link.core_number]
                     .filter(Boolean)
                     .join(' - ');
                 const color = colors[source.type] || '#0f172a';
-                L.polyline(line, {
+                L.polyline([sourcePoint, targetPoint], {
                     color,
-                    weight: route ? 2.4 : 1.6,
-                    opacity: route ? 0.85 : 0.65,
-                    dashArray: route ? null : '6 8',
+                    weight: 1.8,
+                    opacity: 0.72,
+                    dashArray: '6 8',
                     lineCap: 'round',
                     lineJoin: 'round',
                 }).addTo(map).bindPopup(`
@@ -424,26 +387,6 @@
             window.addEventListener('layout:changed', invalidate);
             window.addEventListener('resize', invalidate);
             invalidate();
-
-            if (!osrmEnabled) return;
-
-            fetch(@json(route('osrm.status')), { headers: { 'Accept': 'application/json' } })
-                .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!osrmStatusEl) return;
-                    if (data?.disabled) {
-                        osrmStatusEl.textContent = 'OFF';
-                        return;
-                    }
-                    if (ok && data?.ok) {
-                        osrmStatusEl.textContent = 'OSRM OK';
-                        return;
-                    }
-                    osrmStatusEl.textContent = 'OSRM not reachable';
-                })
-                .catch(() => {
-                    if (osrmStatusEl) osrmStatusEl.textContent = 'OSRM not reachable';
-                });
         })();
     </script>
 </x-layouts.app>

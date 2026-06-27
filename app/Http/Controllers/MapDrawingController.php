@@ -9,6 +9,13 @@ use Illuminate\Validation\Rule;
 
 class MapDrawingController extends Controller
 {
+    public function index(): JsonResponse
+    {
+        return response()->json([
+            'data' => MapDrawing::latest()->get()->map(fn (MapDrawing $drawing) => $this->payload($drawing))->values(),
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validatedData($request);

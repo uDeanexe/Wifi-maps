@@ -425,6 +425,7 @@
                 markersById.set(String(node.id), marker);
             });
             links.forEach((link) => {
+                if (String(link.cable_type || '').trim().toLowerCase() === 'manual drawing') return;
                 const source = byId.get(String(link.source_node_id));
                 const target = byId.get(String(link.target_node_id));
                 if (!source || !target || !hasCoords(source) || !hasCoords(target)) return;

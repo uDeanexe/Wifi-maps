@@ -16,7 +16,7 @@
 
         <section class="panel p-5 sm:p-6">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <div><h3 class="text-lg font-black text-slate-900">Filter report node</h3><p class="mt-1 text-sm text-slate-500">Opsional. Filter ini diterapkan ke report node, visual A4, topology, dan CSV node.</p></div>
+                <div><h3 class="text-lg font-black text-slate-900">Filter report node</h3><p class="mt-1 text-sm text-slate-500">Opsional. Filter ini diterapkan ke report node, dokumentasi visual A4, dan CSV node.</p></div>
                 <button type="button" class="btn hidden" data-report-reset>Reset filter</button>
             </div>
             <form class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-report-filter>
@@ -32,13 +32,12 @@
 
         @php
             $reports = [
-                ['title'=>'Topology jaringan','desc'=>'Ringkasan lengkap node dan link dalam satu dokumen.','format'=>'PDF','url'=>route('reports.topology.pdf'),'filter'=>true,'count'=>$nodeCount.' node · '.$linkCount.' link'],
                 ['title'=>'Daftar node','desc'=>'Tabel inventaris node yang ringkas dan siap dicetak.','format'=>'PDF','url'=>route('reports.nodes.pdf'),'filter'=>true,'count'=>$nodeCount.' node'],
                 ['title'=>'Dokumentasi visual A4','desc'=>'Satu dokumentasi lokasi per halaman dengan foto dan detail.','format'=>'PDF','url'=>route('reports.nodes.visual-a4.pdf'),'filter'=>true,'count'=>$nodeCount.' node'],
                 ['title'=>'Daftar link','desc'=>'Data koneksi, kabel, core, PON, ODC, dan catatan.','format'=>'PDF','url'=>route('reports.links.pdf'),'filter'=>true,'count'=>$linkCount.' link'],
                 ['title'=>'Sticker QR link','desc'=>'Sticker QR siap cetak, tiga salinan untuk setiap link.','format'=>'PDF','url'=>route('reports.links.stickers.all.pdf'),'filter'=>false,'count'=>$linkCount.' link'],
-                ['title'=>'Data node mentah','desc'=>'Format spreadsheet untuk audit atau pengolahan lanjutan.','format'=>'CSV','url'=>route('reports.nodes.csv'),'filter'=>true,'count'=>$nodeCount.' node'],
-                ['title'=>'Data link mentah','desc'=>'Format spreadsheet untuk backup dan pengolahan data link.','format'=>'CSV','url'=>route('reports.links.csv'),'filter'=>true,'count'=>$linkCount.' link'],
+                ['title'=>'Data node CSV','desc'=>'Format spreadsheet untuk audit atau pengolahan lanjutan.','format'=>'CSV','url'=>route('reports.nodes.csv'),'filter'=>true,'count'=>$nodeCount.' node'],
+                ['title'=>'Data link CSV','desc'=>'Format spreadsheet untuk backup dan pengolahan data link.','format'=>'CSV','url'=>route('reports.links.csv'),'filter'=>true,'count'=>$linkCount.' link'],
             ];
         @endphp
         <section>
